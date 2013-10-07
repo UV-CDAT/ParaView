@@ -63,19 +63,25 @@ except ImportError:
 from autobahn.wamp import exportRpc
 
 class CustomImageDelievery(pv_protocols.ParaViewWebProtocol):
-  def __init__(self,template="default",ptype="isofill",pname="default",width=864,height=646,fmt="jpeg;base64"):
+  #def __init__(self,template="default",ptype="isofill",pname="default",width=864,height=646,fmt="jpeg;base64"):
+  def __init__(self):
     self._netcdfFile = None
     self._initRender = False
+    """
     self._plotType =  ptype
     self._plotTemplate= template
     self._plotGMName = pname
+    """
+    self._plotType = "isofill"
+    self._plotTemplate= "default"
+    self._plotGMName = "default"
     self._canvas = vcs.init()
     self._viewSelection = None
     self._variable = None
     self._canvas.setbgoutputdimensions(width,height,units="pixel")
-    self._width=width
-    self._height=height
-    self._format=fmt
+    self._width=864
+    self._height=646
+    self._format="jpeg:base64"
 
   def setFileName(self, filename):
     self._netcdfFile = filename
@@ -103,7 +109,11 @@ class CustomImageDelievery(pv_protocols.ParaViewWebProtocol):
   def stillRender(self, options):
     data = cdms2.open(self._netcdfFile)(self._variable)
     d = self._canvas.plot(data,self._plotTemplate,self._plotType,self._plotGMName,bg=1)
-    png = d._repr_png_()
+    os.system('convert %s.png %s.jpeg'%(self.plotGMName,self.plotGMName))
+    image_file=self.plotGMName + '.jpeg'
+    image_file_handler=open(image_file, 'rb')
+    png=base64.b64encode(image_file.read())
+    #png = d._repr_png_()
 
     #with open(self._netcdfFile, "rb") as image_file:
     #    imageString = base64.b64encode(image_file.read())
@@ -111,7 +121,7 @@ class CustomImageDelievery(pv_protocols.ParaViewWebProtocol):
     reply = {}
     if not self._initRender:
         return reply
-    fmt = options.get("fmt",self._format)
+    #fmt = options.get("fmt",self._format)
     reply['image'] = png 
     reply['state'] = True
     reply['mtime'] = ""
@@ -147,7 +157,8 @@ class _PipelineManager(pv_wamp.PVServerProtocol):
         self.registerVtkWebProtocol(pv_protocols.ParaViewWebTimeHandler())
         self.registerVtkWebProtocol(pv_protocols.ParaViewWebRemoteConnection())
 
-        self._imageDelivery = CustomImageDelievery(template="default",ptype="isofill",pname="default",width=864,height=646)
+        #self._imageDelivery = CustomImageDelievery(template="default",ptype="isofill",pname="default",width=864,height=646)
+        self._imageDelivery = CustomImageDelievery()
         self._imageDelivery.setFileName(_PipelineManager.fileToLoad)
         self.registerVtkWebProtocol(self._imageDelivery)
 
