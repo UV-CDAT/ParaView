@@ -43,6 +43,8 @@
 import os
 import sys
 import base64
+import vcs
+import cdms2
 
 # import paraview modules.
 from paraview.web import wamp      as pv_wamp
@@ -64,9 +66,26 @@ class CustomImageDelievery(pv_protocols.ParaViewWebProtocol):
   def __init__(self):
     self._netcdfFile = None
     self._initRender = False
+    self._plotType = "boxfill" 
+    self._plotTemplate= "default"
+    self._canvas = vcs.init()
+    self._viewSelection = None
+    self._variable = None
 
   def setFileName(self, filename):
     self._netcdfFile = filename
+
+  def setPlotType(self,plotType):
+    self._plotType = plotType
+
+  def setPlotTemplate(self, plotTemplate):
+    self._plotTemplate = plotTemplate
+
+  def setViewSelection(self, viewSelection):
+    self._viewSelection = viewSelection
+
+  def setVariable(self, variable):
+    self._variable = variable
 
   @exportRpc("initRender")
   def initRender(self):
@@ -77,14 +96,18 @@ class CustomImageDelievery(pv_protocols.ParaViewWebProtocol):
 
   @exportRpc("stillRender")
   def stillRender(self, options):
-    with open(self._netcdfFile, "rb") as image_file:
-        imageString = base64.b64encode(image_file.read())
+    data = cdms2.open(self._netcdfFile)(self._variable)
+    d = self._canvas.plot(data,self._plotTemplate,self._plotType)
+    png = d.__repr_png_()
+
+    #with open(self._netcdfFile, "rb") as image_file:
+    #    imageString = base64.b64encode(image_file.read())
 
     reply = {}
     if not self._initRender:
         return reply
 
-    reply['image'] = imageString
+    reply['image'] = png 
     reply['state'] = True
     reply['mtime'] = ""
     reply['size'] = [200, 200]
