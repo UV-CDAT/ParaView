@@ -63,14 +63,19 @@ except ImportError:
 from autobahn.wamp import exportRpc
 
 class CustomImageDelievery(pv_protocols.ParaViewWebProtocol):
-  def __init__(self):
+  def __init__(self,template="default",ptype="isofill",pname="default",width=864,height=646,fmt="jpeg;base64"):
     self._netcdfFile = None
     self._initRender = False
-    self._plotType = "boxfill" 
-    self._plotTemplate= "default"
+    self._plotType =  ptype
+    self._plotTemplate= template
+    self._plotGMName = pname
     self._canvas = vcs.init()
     self._viewSelection = None
     self._variable = None
+    self._canvas.setbgoutputdimensions(width,height,units="pixel")
+    self._width=width
+    self._height=height
+    self._format=fmt
 
   def setFileName(self, filename):
     self._netcdfFile = filename
@@ -97,8 +102,8 @@ class CustomImageDelievery(pv_protocols.ParaViewWebProtocol):
   @exportRpc("stillRender")
   def stillRender(self, options):
     data = cdms2.open(self._netcdfFile)(self._variable)
-    d = self._canvas.plot(data,self._plotTemplate,self._plotType)
-    png = d.__repr_png_()
+    d = self._canvas.plot(data,self._plotTemplate,self._plotType,self._plotGMName,bg=1)
+    png = d._repr_png_()
 
     #with open(self._netcdfFile, "rb") as image_file:
     #    imageString = base64.b64encode(image_file.read())
@@ -106,12 +111,12 @@ class CustomImageDelievery(pv_protocols.ParaViewWebProtocol):
     reply = {}
     if not self._initRender:
         return reply
-
+    fmt = options.get("fmt",self._format)
     reply['image'] = png 
     reply['state'] = True
     reply['mtime'] = ""
-    reply['size'] = [200, 200]
-    reply['format'] = "jpeg;base64"
+    reply['size'] = [self._width,self_height]
+    reply['format'] = fmt
     reply['global_id'] = ""
     reply['localTime'] = ""
     reply['workTime'] = ""
@@ -142,7 +147,7 @@ class _PipelineManager(pv_wamp.PVServerProtocol):
         self.registerVtkWebProtocol(pv_protocols.ParaViewWebTimeHandler())
         self.registerVtkWebProtocol(pv_protocols.ParaViewWebRemoteConnection())
 
-        self._imageDelivery = CustomImageDelievery()
+        self._imageDelivery = CustomImageDelievery(template="default",ptype="isofill",pname="default",width=864,height=646)
         self._imageDelivery.setFileName(_PipelineManager.fileToLoad)
         self.registerVtkWebProtocol(self._imageDelivery)
 
