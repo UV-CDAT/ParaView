@@ -97,9 +97,19 @@ class CustomImageDelievery(pv_protocols.ParaViewWebProtocol):
   @exportRpc("stillRender")
   def stillRender(self, options):
     data = cdms2.open(self._netcdfFile)(self._variable)
-    d = self._canvas.plot(data,self._plotTemplate,self._plotType)
-    png = d.__repr_png_()
-
+    d = self._canvas.plot(data,self._plotTemplate,self._plotType,bg=1)
+    png = d._repr_png_()
+    """
+    self._canvas.plot(data,self._plotTemplate,self._plotType,bg=1)
+    test_filepath='/export/leung25/testIsofill'
+    test_png_filepath=test_filepath+'.png'
+    test_jpeg_filepath=test_filepath+'.jpeg'
+    self._canvas.png(test_png_filepath)
+    os.system('convert %s %s'%(test_png_filepath,test_jpeg_filepath))
+    img_handler=open(test_jpeg_filepath, 'rb')
+    png=base64.b64encode(img_handler.read())
+    """
+    png = base64.b64encode(png)
     #with open(self._netcdfFile, "rb") as image_file:
     #    imageString = base64.b64encode(image_file.read())
 
@@ -110,8 +120,8 @@ class CustomImageDelievery(pv_protocols.ParaViewWebProtocol):
     reply['image'] = png 
     reply['state'] = True
     reply['mtime'] = ""
-    reply['size'] = [200, 200]
-    reply['format'] = "jpeg;base64"
+    reply['size'] = [864, 646]
+    reply['format'] = "png;base64"
     reply['global_id'] = ""
     reply['localTime'] = ""
     reply['workTime'] = ""
@@ -144,6 +154,7 @@ class _PipelineManager(pv_wamp.PVServerProtocol):
 
         self._imageDelivery = CustomImageDelievery()
         self._imageDelivery.setFileName(_PipelineManager.fileToLoad)
+        self._imageDelivery.setVariable('clt')
         self.registerVtkWebProtocol(self._imageDelivery)
 
         # Update authentication key to use
