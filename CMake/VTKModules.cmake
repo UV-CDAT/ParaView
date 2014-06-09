@@ -338,6 +338,9 @@ set(_vtk_modules
 
   vtkPVServerManagerDefault
   # Needed by plugins
+
+  vtkPVAnimation
+  # Needed for animation support.
   )
 
 if (PARAVIEW_USE_MPI)
@@ -348,7 +351,7 @@ if (PARAVIEW_USE_VISITBRIDGE)
   list (APPEND _vtk_modules vtkIOVisItBridge)
 endif()
 
-if (PARAVIEW_ENABLE_PYTHON AND PARAVIEW_ENABLE_MATPLOTLIB)
+if (PARAVIEW_ENABLE_MATPLOTLIB)
   list (APPEND _vtk_modules vtkRenderingMatplotlib)
 endif()
 

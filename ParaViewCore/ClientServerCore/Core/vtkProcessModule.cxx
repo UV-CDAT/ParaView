@@ -20,17 +20,16 @@
 #include "vtkCommand.h"
 #include "vtkCompositeDataPipeline.h"
 #include "vtkDummyController.h"
-#include "vtkDynamicLoader.h"
 #include "vtkFloatingPointExceptions.h"
 #include "vtkMultiThreader.h"
 #include "vtkObjectFactory.h"
 #include "vtkOutputWindow.h"
 #include "vtkPVConfig.h"
+#include "vtkPVConfig.h"
 #include "vtkPVOptions.h"
 #include "vtkSessionIterator.h"
 #include "vtkStdString.h"
 #include "vtkTCPNetworkAccessManager.h"
-#include "vtkPVConfig.h"
 
 #include <vtksys/SystemTools.hxx>
 
@@ -43,9 +42,15 @@
 # include "vtkProcessModuleInitializePython.h"
 #endif
 
-#ifndef _WIN32
-#include <signal.h>
+#ifdef _WIN32
+# include "vtkDynamicLoader.h"
+#else
+# include <signal.h>
 #endif
+
+// this include is needed to ensure that vtkPVPluginLoader singleton doesn't get
+// destroyed before the process module singleton is cleaned up.
+#include "vtkPVPluginLoader.h"
 
 #include <assert.h>
 #include <stdexcept> // for runtime_error
@@ -133,19 +138,25 @@ bool vtkProcessModule::Initialize(ProcessTypes type, int &argc, char** &argv)
 
   if (use_mpi || mpi_already_initialized)
     {
-    // Get number of ranks passed to mpiexec/mpirun etc.
-    int numRanks = 0;
-    MPI_Comm_size(MPI_COMM_WORLD,&numRanks);
-
+    if(vtkMPIController* controller = vtkMPIController::SafeDownCast(
+         vtkMultiProcessController::GetGlobalController()))
+      {
+      vtkProcessModule::GlobalController = controller;
+      }
+    else
+      {
+      vtkProcessModule::GlobalController = vtkSmartPointer<vtkMPIController>::New();
+      vtkProcessModule::GlobalController->Initialize(
+        &argc, &argv, /*initializedExternally*/1);
+      }
+    // Get number of ranks in this process group
+    int numRanks = vtkProcessModule::GlobalController->GetNumberOfProcesses();
     // Ensure that the user cannot run a client with more than one rank.
     if (type==PROCESS_CLIENT && numRanks > 1)
       {
       throw std::runtime_error("Client process should be run with one process!");
       }
 
-    vtkProcessModule::GlobalController = vtkSmartPointer<vtkMPIController>::New();
-    vtkProcessModule::GlobalController->Initialize(
-      &argc, &argv, /*initializedExternally*/1);
     }
 #else
   static_cast<void>(argc); // unused warning when MPI is off

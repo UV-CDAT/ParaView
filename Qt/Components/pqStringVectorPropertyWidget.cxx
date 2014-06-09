@@ -58,6 +58,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "pqServerManagerModel.h"
 #include "pqSILModel.h"
 #include "pqSILWidget.h"
+#include "pqTextEditSignalEndOfEdit.h"
 #include "pqTreeWidget.h"
 #include "pqTreeWidgetSelectionHelper.h"
 #include "pqFieldSelectionAdaptor.h"
@@ -69,6 +70,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <QVBoxLayout>
 
 #include <QDebug>
+
+
 
 pqStringVectorPropertyWidget::pqStringVectorPropertyWidget(vtkSMProperty *smProperty,
                                                            vtkSMProxy *smProxy,
@@ -200,6 +203,7 @@ pqStringVectorPropertyWidget::pqStringVectorPropertyWidget(vtkSMProperty *smProp
       selectorWidget->setObjectName("ArraySelectionWidget");
       selectorWidget->setRootIsDecorated(false);
       selectorWidget->setHeaderLabel(smProperty->GetXMLLabel());
+      selectorWidget->setMaximumRowCountBeforeScrolling(20);
 
       // hide widget label
       this->setShowLabel(false);
@@ -299,6 +303,7 @@ pqStringVectorPropertyWidget::pqStringVectorPropertyWidget(vtkSMProperty *smProp
     selectorWidget->setObjectName("ArraySelectionWidget");
     selectorWidget->setRootIsDecorated(false);
     selectorWidget->setHeaderLabel(smProperty->GetXMLLabel());
+    selectorWidget->setMaximumRowCountBeforeScrolling(20);
     this->addPropertyLink(
       selectorWidget, smProxy->GetPropertyName(smProperty),
       SIGNAL(widgetModified()), smProperty);
@@ -343,7 +348,7 @@ pqStringVectorPropertyWidget::pqStringVectorPropertyWidget(vtkSMProperty *smProp
     vbox->addWidget(label);
 
     // add a multiline text widget
-    QTextEdit *textEdit = new QTextEdit(this);
+    pqTextEditSignalEndOfEdit *textEdit = new pqTextEditSignalEndOfEdit(this);
     QFont textFont("Courier");
     textEdit->setFont(textFont);
     textEdit->setObjectName(smProxy->GetPropertyName(smProperty));
@@ -353,8 +358,8 @@ pqStringVectorPropertyWidget::pqStringVectorPropertyWidget(vtkSMProperty *smProp
 
     this->setChangeAvailableAsChangeFinished(false);
     this->addPropertyLink(textEdit, "plainText",
-      SIGNAL(textChanged()), smProperty);
-    this->connect(textEdit, SIGNAL(textChanged()),
+                          SIGNAL(endOfEdit()), smProperty);
+    this->connect(textEdit, SIGNAL(endOfEdit()),
                   this, SIGNAL(changeFinished()));
 
     vbox->addWidget(textEdit);

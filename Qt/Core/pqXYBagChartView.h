@@ -45,7 +45,6 @@ class PQCORE_EXPORT pqXYBagChartView : public pqContextView
 
 public:
   static QString XYBagChartViewType() { return "XYBagChartView"; }
-  static QString XYBagChartViewTypeName() { return "Bag Chart View"; }
   /// Currently theis chart view is not supporting selection.
   virtual bool supportsSelection() const { return false; }
 
@@ -57,9 +56,6 @@ public:
                  QObject* parent=NULL);
 
   virtual ~pqXYBagChartView();
-
-  /// Set property values.
-  virtual void setDefaultPropertyValues();
 
 private:
   pqXYBagChartView(const pqXYBagChartView&); // Not implemented.

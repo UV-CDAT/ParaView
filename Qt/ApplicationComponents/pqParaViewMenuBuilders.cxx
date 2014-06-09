@@ -81,7 +81,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "pqUndoRedoReaction.h"
 #include "pqVCRToolbar.h"
 #include "pqViewMenuManager.h"
-#include "pqViewSettingsReaction.h"
 
 #ifdef PARAVIEW_ENABLE_PYTHON
 #include "pqMacroReaction.h"
@@ -145,7 +144,6 @@ void pqParaViewMenuBuilders::buildEditMenu(QMenu& menu)
   new pqCopyReaction(ui.actionCopy);
   new pqCopyReaction(ui.actionPaste, true);
   new pqApplicationSettingsReaction(ui.actionEditSettings);
-  new pqViewSettingsReaction(ui.actionEditViewSettings);
   new pqDataQueryReaction(ui.actionQuery);
 }
 
@@ -194,17 +192,9 @@ void pqParaViewMenuBuilders::buildToolsMenu(QMenu& menu)
   new pqManageLinksReaction(menu.addAction("Manage Links...") <<
     pqSetName("actionToolsManageLinks"));
   //<addaction name="actionToolsAddCameraLink" />
-#ifdef BUILD_SHARED_LIBS
   // Add support for importing plugins only if ParaView was built shared.
   new pqManagePluginsReaction(menu.addAction("Manage Plugins...") <<
     pqSetName("actionManage_Plugins"));
-#else
-  QAction* action2 = menu.addAction("Manage Plugins...");
-  action2->setEnabled(false);
-  action2->setToolTip(
-    "Use BUILD_SHARED:ON while compiling to enable plugin support.");
-  action2->setStatusTip(action2->toolTip());
-#endif
 
 
   menu.addSeparator(); // --------------------------------------------------

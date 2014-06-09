@@ -15,11 +15,13 @@
 #include "vtkCPCxxHelper.h"
 
 #include "vtkInitializationHelper.h"
+#include "vtkNew.h"
 #include "vtkObjectFactory.h"
 #include "vtkProcessModule.h"
 #include "vtkPVConfig.h" // Required to get build options for paraview
 #include "vtkPVOptions.h"
 #include "vtkSMObject.h"
+#include "vtkSMParaViewPipelineController.h"
 #include "vtkSMProperty.h"
 #include "vtkSMProxyManager.h"
 #include "vtkSMSession.h"
@@ -81,6 +83,9 @@ vtkCPCxxHelper* vtkCPCxxHelper::New()
     vtkCPCxxHelper::Instance->Options = vtkPVOptions::New();
     vtkCPCxxHelper::Instance->Options->SetSymmetricMPIMode(1);
 
+    // Disable vtkSMSettings processing for Catalyst applications.
+    vtkInitializationHelper::SetLoadSettingsFilesDuringInitialization(false);
+
     vtkInitializationHelper::Initialize(
         argc, argv, vtkProcessModule::PROCESS_BATCH,
         vtkCPCxxHelper::Instance->Options);
@@ -88,7 +93,12 @@ vtkCPCxxHelper* vtkCPCxxHelper::New()
     // Setup default session.
     vtkIdType connectionId = vtkSMSession::ConnectToSelf();
     assert(connectionId != 0);
-    (void)connectionId;
+
+    // initialize the session for a ParaView session.
+    vtkNew<vtkSMParaViewPipelineController> controller;
+    vtkProcessModule* pm = vtkProcessModule::GetProcessModule();
+    controller->InitializeSession(vtkSMSession::SafeDownCast(
+        pm->GetSession(connectionId)));
 
     delete []argv[0];
     delete []argv;

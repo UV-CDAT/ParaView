@@ -45,7 +45,6 @@ class PQCORE_EXPORT pqBoxChartView : public pqContextView
 
 public:
   static QString chartViewType() { return "BoxChartView"; }
-  static QString chartViewTypeName() { return "Box Chart View"; }
 
   pqBoxChartView(const QString& group,
                  const QString& name,
@@ -54,9 +53,6 @@ public:
                  QObject* parent=NULL);
 
   virtual ~pqBoxChartView();
-
-  /// Set property values.
-  virtual void setDefaultPropertyValues();
 
 signals:
   /// Fired when the currently shown representation changes. \c repr may be

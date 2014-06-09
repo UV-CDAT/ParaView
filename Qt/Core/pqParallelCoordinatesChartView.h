@@ -45,7 +45,6 @@ class PQCORE_EXPORT pqParallelCoordinatesChartView : public pqContextView
 
 public:
   static QString chartViewType() { return "ParallelCoordinatesChartView"; }
-  static QString chartViewTypeName() { return "Parallel Coordinates View"; }
 
   pqParallelCoordinatesChartView(const QString& group,
                  const QString& name,
@@ -54,9 +53,6 @@ public:
                  QObject* parent=NULL);
 
   virtual ~pqParallelCoordinatesChartView();
-
-  /// Set property values.
-  virtual void setDefaultPropertyValues();
 
 signals:
   /// Fired when the currently shown representation changes. \c repr may be

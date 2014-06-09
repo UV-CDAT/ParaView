@@ -15,22 +15,21 @@
 
 #include "pqApplicationCore.h"
 #include "pqCoreTestUtility.h"
-#include "pqInterfaceTracker.h"
 #include "pqObjectBuilder.h"
 #include "pqOptions.h"
 #include "pqPipelineSource.h"
 #include "pqPipelineAnnotationFilterModel.h"
 #include "pqServer.h"
-#include "pqStandardViewModules.h"
 #include "vtkProcessModule.h"
+
+#include <QToolBar>
+#include <QAction>
 
 MainPipelineWindow::MainPipelineWindow()
 {
   // Init ParaView
   pqApplicationCore* core = pqApplicationCore::instance();
   pqObjectBuilder* ob = core->getObjectBuilder();
-  pqInterfaceTracker* pgm = pqApplicationCore::instance()->interfaceTracker();
-  pgm->addInterface(new pqStandardViewModules(pgm));
 
   // Set Filter/Annotation list
   this->FilterNames.append("No filtering");
@@ -64,6 +63,12 @@ MainPipelineWindow::MainPipelineWindow()
   createPipelineWithAnnotation(server);
 
   QTimer::singleShot(100, this, SLOT(processTest()));
+
+  QToolBar *tb = new QToolBar("Options", this);
+  this->addToolBar(tb);
+
+  QAction* actn = tb->addAction("Settings");
+  this->connect(actn, SIGNAL(triggered()), SLOT(showSettings()));
 }
 
 //-----------------------------------------------------------------------------
@@ -155,6 +160,23 @@ void MainPipelineWindow::createPipelineWithAnnotation(pqServer* server)
   append->getProxy()->SetAnnotation("tooltip", "2+3");
   groupDS->getProxy()->SetAnnotation("tooltip", "2");
 }
+
+#include "pqActiveObjects.h"
+#include "pqProxyWidgetDialog.h"
+#include "vtkSMSessionProxyManager.h"
+
+//-----------------------------------------------------------------------------
+void MainPipelineWindow::showSettings()
+{
+  pqServer* server = pqActiveObjects::instance().activeServer();
+  vtkSMSessionProxyManager* pxm = server->proxyManager();
+
+  vtkSMProxy* optionsProxy = pxm->NewProxy("settings", "GeneralSettings");
+  pqProxyWidgetDialog dialog(optionsProxy, this);
+  dialog.exec();
+  optionsProxy->Delete();
+}
+
 //-----------------------------------------------------------------------------
 int main(int argc, char** argv)
 {

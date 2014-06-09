@@ -67,8 +67,10 @@ build_paraview_client(paraview
     GUI_CONFIGURATION_XMLS
       ${application_gui_xmls} # Add any compiled in GUI configuration xmls
     SOURCES ${ParaView_SOURCE_FILES}
-    INSTALL_BIN_DIR "${VTK_INSTALL_RUNTIME_DIR}"
-    INSTALL_LIB_DIR "${VTK_INSTALL_LIBRARY_DIR}")
+    INSTALL_RUNTIME_DIR "${VTK_INSTALL_RUNTIME_DIR}"
+    INSTALL_LIBRARY_DIR "${VTK_INSTALL_LIBRARY_DIR}"
+    INSTALL_ARCHIVE_DIR "${VTK_INSTALL_ARCHIVE_DIR}"
+    )
 
 # Set appropriate compile flags.
 if( PARAVIEW_QT_VERSION VERSION_GREATER "4" )
@@ -77,18 +79,20 @@ if( PARAVIEW_QT_VERSION VERSION_GREATER "4" )
 endif()
 
 # Link against the documentation module.
-target_link_libraries(paraview vtkParaViewDocumentation)
+target_link_libraries(paraview
+  LINK_PRIVATE vtkParaViewDocumentation)
 
 # link enabled plugins if not building in shared library mode and
 # add dependecies to linked python modules These are non-empty only when
 # building statically.
 if (PARAVIEW_ENABLE_PYTHON)
-  target_link_libraries(paraview vtkUtilitiesPythonInitializer)
+  target_link_libraries(paraview 
+    LINK_PRIVATE vtkUtilitiesPythonInitializer)
 endif()
 
 if(NOT BUILD_SHARED_LIBS)
   target_link_libraries(paraview
-    ${PARAVIEW_PLUGINLIST})
+    LINK_PRIVATE vtkPVStaticPluginsInit)
 endif(NOT BUILD_SHARED_LIBS)
 
 

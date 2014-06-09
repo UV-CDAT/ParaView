@@ -30,6 +30,10 @@ import os
 import math
 
 # import paraview modules.
+import paraview
+# for 4.1 compatibility till we fix ColorArrayName and ColorAttributeType usage.
+paraview.compatibility.major = 4
+paraview.compatibility.minor = 1
 from paraview import simple
 from paraview.web import wamp      as pv_wamp
 from paraview.web import protocols as pv_protocols
@@ -205,6 +209,12 @@ class _PVCatalystManager(pv_wamp.PVServerProtocol):
         reader = simple.OpenDataFile(fileToLoad)
         if _PVCatalystManager.pipeline_handler:
             _PVCatalystManager.pipeline_handler.apply_pipeline(reader, self.time_steps)
+
+    @exportRpc("initializePipeline")
+    def initializePipeline(self, conf):
+        if _PVCatalystManager.pipeline_handler and "initialize_pipeline" in dir(_PVCatalystManager.pipeline_handler):
+            _PVCatalystManager.pipeline_handler.initialize_pipeline(conf)
+
 
     @exportRpc("updateActiveArgument")
     def updateActiveArgument(self, key, value):

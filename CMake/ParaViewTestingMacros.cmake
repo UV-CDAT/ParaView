@@ -1,3 +1,118 @@
+# Override vtk_add_test_* variables for use with ParaView.
+macro (_paraview_override_vtk_dirs)
+  set(VTK_TEST_DATA_DIR    ${PARAVIEW_TEST_OUTPUT_DATA_DIR})
+  set(VTK_BASELINE_DIR     ${PARAVIEW_TEST_BASELINE_DIR})
+  set(VTK_TEST_OUTPUT_DIR  ${PARAVIEW_TEST_OUTPUT_DIR})
+  set(VTK_TEST_DATA_TARGET ParaViewData)
+endmacro ()
+
+function (paraview_add_test_mpi exe var)
+  _paraview_override_vtk_dirs()
+  vtk_add_test_mpi("${exe}" "${var}" ${ARGN})
+  set("${var}" ${${var}}
+    PARENT_SCOPE)
+endfunction ()
+
+function (paraview_add_test_cxx exe var)
+  _paraview_override_vtk_dirs()
+  vtk_add_test_cxx("${exe}" "${var}" ${ARGN})
+  set("${var}" ${${var}}
+    PARENT_SCOPE)
+endfunction ()
+
+function (paraview_add_test_python)
+  set(VTK_PYTHON_EXE "$<TARGET_FILE:pvpython>")
+  list(APPEND VTK_PYTHON_ARGS
+    ${PARAVIEW_PYTHON_ARGS})
+  _paraview_override_vtk_dirs()
+  vtk_add_test_python(${ARGN})
+endfunction ()
+
+function (paraview_add_test_python_mpi)
+  set(VTK_PYTHON_EXE "$<TARGET_FILE:pvpython>")
+  list(APPEND VTK_PYTHON_ARGS
+    ${PARAVIEW_PYTHON_ARGS})
+  _paraview_override_vtk_dirs()
+  vtk_add_test_python_mpi(${ARGN})
+endfunction ()
+
+function (paraview_add_test_pvbatch)
+  set(VTK_PYTHON_EXE "$<TARGET_FILE:pvbatch>")
+  list(APPEND VTK_PYTHON_ARGS
+    ${PARAVIEW_PVBATCH_ARGS})
+  _paraview_override_vtk_dirs()
+  vtk_add_test_python(${ARGN})
+endfunction ()
+
+function (paraview_add_test_pvbatch_mpi)
+  set(VTK_PYTHON_EXE "$<TARGET_FILE:pvbatch>")
+  list(APPEND VTK_PYTHON_ARGS
+    ${PARAVIEW_PVBATCH_ARGS})
+  _paraview_override_vtk_dirs()
+  vtk_add_test_python_mpi(${ARGN})
+endfunction ()
+
+function(paraview_add_test_driven)
+  if (NOT (TARGET pvserver AND TARGET pvpython))
+    return()
+  endif ()
+  set(VTK_PYTHON_EXE "$<TARGET_FILE:smTestDriver>")
+  list(APPEND VTK_PYTHON_ARGS
+    --server $<TARGET_FILE:pvserver>
+    --client $<TARGET_FILE:pvpython>)
+  _paraview_override_vtk_dirs()
+  vtk_add_test_python(${ARGN})
+endfunction ()
+
+function (paraview_test_load_baselines name)
+  set(data)
+  foreach (datafile IN LISTS ARGN)
+    list(APPEND data
+      "DATA{${PARAVIEW_TEST_BASELINE_DIR}/${datafile}}")
+  endforeach ()
+  _paraview_test_load_data("${name}" ${data})
+endfunction ()
+
+function (paraview_test_load_baselines_dirs name)
+  set(data)
+  foreach (datafile IN LISTS ARGN)
+    list(APPEND data
+      "DATA{${PARAVIEW_TEST_BASELINE_DIR}/${datafile}/,REGEX:.*}")
+  endforeach ()
+  _paraview_test_load_data("${name}" ${data})
+endfunction ()
+
+function (paraview_test_load_data name)
+  set(data)
+  foreach (datafile IN LISTS ARGN)
+    list(APPEND data
+      "DATA{${PARAVIEW_TEST_DATA_DIR}/${datafile}}")
+  endforeach ()
+  _paraview_test_load_data("${name}" ${data})
+endfunction ()
+
+function (paraview_test_load_data_dirs name)
+  set(data)
+  foreach (datafile IN LISTS ARGN)
+    list(APPEND data
+      "DATA{${PARAVIEW_TEST_DATA_DIR}/${datafile}/,REGEX:.*}")
+  endforeach ()
+  _paraview_test_load_data("${name}" ${data})
+endfunction ()
+
+function (_paraview_test_load_data name)
+  ExternalData_Expand_Arguments("ParaViewData${name}" files ${ARGN})
+endfunction ()
+
+function (paraview_test_data_target name)
+  # All non-default data targets should depend on the basic target.
+  if (name)
+    ExternalData_Add_Target("ParaViewData${name}")
+    add_dependencies("ParaViewData${name}"
+      ParaViewData)
+  endif ()
+endfunction ()
+
 # Set up some common testing environment.
 SET (CLIENT_EXECUTABLE  "\$<TARGET_FILE:paraview>")
 # FIXME: need to verify that the above points to the paraview executable within
@@ -6,7 +121,7 @@ SET (CLIENT_EXECUTABLE  "\$<TARGET_FILE:paraview>")
 MACRO (process_args out_extra_args)
   SET (temp_args)
   IF (ACT_BASELINE_DIR)
-    SET (temp_args "--test-baseline=${ACT_BASELINE_DIR}/${test_name}.png")
+    SET (temp_args "--test-baseline=DATA{${ACT_BASELINE_DIR}/${test_name}.png}")
   ENDIF (ACT_BASELINE_DIR)
   IF (${test_name}_THRESHOLD)
     SET (temp_args ${temp_args} "--test-threshold=${${test_name}_THRESHOLD}")
@@ -65,13 +180,13 @@ FUNCTION (add_pv_test prefix skip_test_flag_suffix)
     endwhile (${counter} LESS ${TEST_GROUP_SIZE})
 
     if (extra_args)
-      ADD_TEST(NAME "${prefix}${full_test_name}"
+      ExternalData_add_test(ParaViewData
+        NAME "${prefix}${full_test_name}"
         COMMAND smTestDriver
-        --enable-bt
-        ${ACT_COMMAND}
-        ${extra_args}
-        --exit
-        )
+                --enable-bt
+                ${ACT_COMMAND}
+                ${extra_args}
+                --exit)
       if (force_serial)
         set_tests_properties("${prefix}${full_test_name}" PROPERTIES RUN_SERIAL ON)
         message(STATUS "Running in serial \"${prefix}${full_test_name}\"")
@@ -88,22 +203,9 @@ ENDFUNCTION (add_pv_test)
 # Add macro to support addition of paraview web tests
 FUNCTION(add_pvweb_tests prefix)
   PV_PARSE_ARGUMENTS(ACT
-    "APP;TEST_SCRIPTS;BASELINE_DIR;COMMAND;ARGS;SERVER;DEPEND_MODS;BROWSER"
+    "APP;TEST_SCRIPTS;BASELINE_DIR;COMMAND;ARGS;SERVER;BROWSER"
     ""
     ${ARGN})
-
-  set(go_ahead_with_tests TRUE)
-
-  # First check that all requested Python modules are present
-  if(DEFINED ACT_DEPEND_MODS)
-    foreach(module_name ${ACT_DEPEND_MODS})
-      find_python_module(${module_name} got_${module_name})
-      if(NOT ${got_${module_name}})
-        message(STATUS "Missing Python module: ${module_name}")
-        set(go_ahead_with_tests FALSE)
-      endif()
-    endforeach()
-  endif()
 
   # If this batch of tests has baseline images that need to be
   # compared against, make sure to include the baseline image
@@ -127,10 +229,6 @@ FUNCTION(add_pvweb_tests prefix)
   # keep the code clean.
   if (NOT DEFINED ACT_BROWSER)
     set(ACT_BROWSER "nobrowser")
-  else()
-    # There is at least one browser test requested, so we need
-    # to find the selenium drivers
-    find_package(SeleniumDrivers)
   endif()
 
   while(ACT_BROWSER)
@@ -138,75 +236,42 @@ FUNCTION(add_pvweb_tests prefix)
     list(GET ACT_BROWSER 0 browser)
     list(REMOVE_AT ACT_BROWSER 0)
 
-    set(browser_${browser}_ok TRUE)
+    # Create a copy of the scripts list so we keep the original intact
+    set(TEST_SCRIPTS_LIST ${ACT_TEST_SCRIPTS})
 
-    # In this section, we make sure that the needed browser driver is
-    # installed on the system.  Some tests might not require selenium
-    # or an actual browser.
-    if(${browser} STREQUAL "nobrowser")
-      # Anything you need to do in the case of no browser.  Currently, nothing.
-    else()
-      if(${browser} STREQUAL "chrome")
-        if(${CHROMEDRIVER_EXECUTABLE} MATCHES "NOTFOUND")
-          set(browser_${browser}_ok FALSE)
-        endif()
-      elseif(${browser} STREQUAL "firefox")
-        if(${FIREFOXDRIVER_EXTENSION} MATCHES "NOTFOUND")
-          set(browser_${browser}_ok FALSE)
-        endif()
-      elseif(${browser} STREQUAL "internet_explorer")
-        if(${IEDRIVER_EXECUTABLE} MATCHES "NOTFOUND")
-          set(browser_${browser}_ok FALSE)
-        endif()
-      elseif(${browser} STREQUAL "safari")
-        if(${SAFARIDRIVER_EXTENSION} MATCHES "NOTFOUND")
-          set(browser_${browser}_ok FALSE)
-        endif()
+    while (TEST_SCRIPTS_LIST)
+      # pop test script path from the top of the list
+      list(GET TEST_SCRIPTS_LIST 0 test_path)
+      list(REMOVE_AT TEST_SCRIPTS_LIST 0)
+      GET_FILENAME_COMPONENT(script_name ${test_path} NAME_WE)
+
+      set(short_script_name ${script_name})
+
+      # Use a regular expression to remove the first 4 batches of
+      # underscore-separated character strings
+      if(${script_name} MATCHES "^[^_]+_[^_]+_[^_]+_[^_]+_(.+)")
+        set(short_script_name ${CMAKE_MATCH_1})
       endif()
-    endif()
 
-    # If we made it through checks for python modules and browser driver
-    # then we are ready to add the tests.
-    if(${go_ahead_with_tests} AND ${browser_${browser}_ok})
+      set(test_name "${prefix}-${browser}.${ACT_APP}-${short_script_name}")
+      set(test_image_file_name "${test_name}.png")
 
-      # Create a copy of the scripts list so we keep the original intact
-      set(TEST_SCRIPTS_LIST ${ACT_TEST_SCRIPTS})
-
-      while (TEST_SCRIPTS_LIST)
-        # pop test script path from the top of the list
-        list(GET TEST_SCRIPTS_LIST 0 test_path)
-        list(REMOVE_AT TEST_SCRIPTS_LIST 0)
-        GET_FILENAME_COMPONENT(script_name ${test_path} NAME_WE)
-
-        set(short_script_name ${script_name})
-
-        # Use a regular expression to remove the first 4 batches of
-        # underscore-separated character strings
-        if(${script_name} MATCHES "^[^_]+_[^_]+_[^_]+_[^_]+_(.+)")
-          set(short_script_name ${CMAKE_MATCH_1})
-        endif()
-
-        set(test_name "${prefix}-${browser}.${ACT_APP}-${short_script_name}")
-        set(test_image_file_name "${test_name}.png")
-
-        add_test(NAME ${test_name}
-          COMMAND ${ACT_COMMAND}
-                  ${ACT_SERVER}
-                  --content ${ParaView_BINARY_DIR}/www
-                  --data-dir ${PARAVIEW_DATA_ROOT}/Data
-                  --port 8080
-                  ${ARGS}
-                  ${BASELINE_IMG_DIR}
-                  --run-test-script ${test_path}
-                  --test-use-browser ${browser}
-                  --temporary-directory ${ParaView_BINARY_DIR}/Testing/Temporary
-                  --test-image-file-name ${test_image_file_name}
-                  )
-        set_tests_properties(${test_name} PROPERTIES LABELS "PARAVIEW")
-      endwhile()
-    else()
-      message(STATUS "${prefix}-${ACT_APP}-${browser} tests disabled, missing requirements")
-    endif()
+      ExternalData_add_test(ParaViewData
+        NAME ${test_name}
+        COMMAND ${ACT_COMMAND}
+                ${ACT_SERVER}
+                --content ${ParaView_BINARY_DIR}/www
+                --data-dir ${PARAVIEW_TEST_OUTPUT_DATA_DIR}
+                --port 8080
+                ${ARGS}
+                ${BASELINE_IMG_DIR}
+                --run-test-script ${test_path}
+                --test-use-browser ${browser}
+                --temporary-directory ${PARAVIEW_TEST_OUTPUT_DIR}
+                --test-image-file-name ${test_image_file_name}
+                )
+      set_tests_properties(${test_name} PROPERTIES LABELS "PARAVIEW")
+    endwhile()
   endwhile()
 ENDFUNCTION()
 
@@ -220,7 +285,6 @@ FUNCTION (add_client_tests prefix)
             --enable-bt
             -dr
             ${CLIENT_SERVER_ARGS}
-            --disable-light-kit
             --test-directory=${PARAVIEW_TEST_DIR}
     ${ARGN})
 ENDFUNCTION (add_client_tests)
@@ -236,7 +300,6 @@ FUNCTION (add_client_server_tests prefix)
        --enable-bt
          ${CLIENT_SERVER_ARGS}
        -dr
-       --disable-light-kit
        --test-directory=${PARAVIEW_TEST_DIR}
     ${ARGN})
 ENDFUNCTION (add_client_server_tests)
@@ -255,7 +318,6 @@ FUNCTION (add_client_render_server_tests prefix)
        --enable-bt
             ${CLIENT_SERVER_ARGS}
        -dr
-       --disable-light-kit
        --test-directory=${PARAVIEW_TEST_DIR}
     ${ARGN})
 ENDFUNCTION (add_client_render_server_tests)
@@ -273,7 +335,8 @@ FUNCTION(add_multi_client_tests prefix)
         set (use_old_panels "--use-old-panels")
       endif ()
 
-      add_test(NAME "${prefix}.${test_name}"
+      ExternalData_add_test(ParaViewData
+        NAME "${prefix}.${test_name}"
         COMMAND smTestDriver
         --test-multi-clients
         --server $<TARGET_FILE:pvserver>
@@ -282,7 +345,6 @@ FUNCTION(add_multi_client_tests prefix)
         --client ${CLIENT_EXECUTABLE}
         --enable-bt
         -dr
-        --disable-light-kit
         --test-directory=${PARAVIEW_TEST_DIR}
         --test-script=${test_script}
         --test-master
@@ -292,7 +354,6 @@ FUNCTION(add_multi_client_tests prefix)
         --client ${CLIENT_EXECUTABLE}
         --enable-bt
         -dr
-        --disable-light-kit
         --test-directory=${PARAVIEW_TEST_DIR}
         --test-slave
         ${extra_args}
@@ -315,7 +376,8 @@ FUNCTION(add_multi_server_tests prefix nbServers)
     get_filename_component(test_name ${test_script} NAME_WE)
       set (extra_args)
       process_args(extra_args)
-      add_test(NAME "${prefix}.${test_name}"
+      ExternalData_add_test(ParaViewData
+        NAME "${prefix}.${test_name}"
         COMMAND smTestDriver
         --test-multi-servers ${nbServers}
         --server $<TARGET_FILE:pvserver>
@@ -324,7 +386,6 @@ FUNCTION(add_multi_server_tests prefix nbServers)
         --client ${CLIENT_EXECUTABLE}
         --enable-bt
         -dr
-        --disable-light-kit
         --test-directory=${PARAVIEW_TEST_DIR}
         --test-script=${test_script}
         ${extra_args}
@@ -349,7 +410,8 @@ FUNCTION (add_tile_display_tests prefix tdx tdy )
         get_filename_component(test_name ${test_script} NAME_WE)
         set (extra_args)
         process_args(extra_args)
-        add_test(NAME "${prefix}-${tdx}x${tdy}.${test_name}"
+        ExternalData_add_test(ParaViewData
+            NAME "${prefix}-${tdx}x${tdy}.${test_name}"
             COMMAND smTestDriver
             --test-tiled ${tdx} ${tdy}
             --server $<TARGET_FILE:pvserver>
@@ -359,7 +421,6 @@ FUNCTION (add_tile_display_tests prefix tdx tdy )
             --enable-bt
             ${CLIENT_SERVER_ARGS}
             -dr
-            --disable-light-kit
             --test-directory=${PARAVIEW_TEST_DIR}
             --test-script=${test_script}
             --tile-image-prefix=${PARAVIEW_TEST_DIR}/${test_name}

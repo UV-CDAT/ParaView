@@ -29,6 +29,14 @@
 #
 #==========================================================================
 cmake_minimum_required(VERSION 2.8.8 FATAL_ERROR)
+
+# Set a consistent MACOSX_RPATH default across all CMake versions.
+# When CMake 2.8.12 is required, change this default to 1.
+# When CMake 3.0.0 is required, remove this block (see CMP0042).
+if(NOT DEFINED CMAKE_MACOSX_RPATH)
+  set(CMAKE_MACOSX_RPATH 0)
+endif()
+
 project(ParaView)
 
 # Disallow in-source build
@@ -52,24 +60,6 @@ endif()
 # Choose static or shared libraries.
 option(BUILD_SHARED_LIBS "Build VTK with shared libraries." ON)
 set(VTK_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
-
-#------------------------------------------------------------------------------
-# Setup CMake Environment
-#------------------------------------------------------------------------------
-# Setup cmake policies.
-# TODO: We need to verify that these are still applicable after
-# VTK-modularization changes.
-foreach(policy CMP0012 CMP0013 CMP0014)
-  if(POLICY ${policy})
-    CMAKE_POLICY(SET ${policy} NEW)
-  endif()
-endforeach()
-
-foreach(policy CMP0017)
-  IF(POLICY ${policy})
-    CMAKE_POLICY(SET ${policy} OLD)
-  endif()
-endforeach()
 
 #-------------------------------------------------------------------------------
 set (ParaView_CMAKE_DIR "${ParaView_SOURCE_DIR}/CMake")
@@ -208,7 +198,7 @@ if (UNIX)
   option(PARAVIEW_ENABLE_FFMPEG "Enable FFMPEG Support." OFF)
 endif()
 
-if (UNIX AND NOT APPLE)
+if (UNIX)
   # Since development installs are currently being tested only on linuxes. We
   # can support these for other platforms if time permits.
   option(PARAVIEW_INSTALL_DEVELOPMENT_FILES
@@ -237,7 +227,8 @@ cmake_dependent_option(PARAVIEW_ENABLE_QT_SUPPORT
 option(PARAVIEW_ENABLE_PYTHON "Enable/Disable Python scripting support" OFF)
 cmake_dependent_option(PARAVIEW_USE_UNIFIED_BINDINGS "If enabled, Python bindings will back the ClientServer wrapping implementation" OFF
   PARAVIEW_ENABLE_PYTHON OFF)
-option(PARAVIEW_ENABLE_MATPLOTLIB "Enable/Disable Python scripting support" ON)
+cmake_dependent_option(PARAVIEW_ENABLE_MATPLOTLIB "Enable/Disable Python scripting support" ON
+  "PARAVIEW_ENABLE_PYTHON;PYTHON_MODULE_matplotlib_FOUND" OFF)
 mark_as_advanced(PARAVIEW_ENABLE_MATPLOTLIB)
 
 # If building on Unix with MPI enabled, we will present another option to
@@ -257,10 +248,17 @@ else()
   set(PARAVIEW_BUILD_ARCHITECTURE "32")
 endif()
 
-FIND_PATH(PARAVIEW_DATA_ROOT ParaViewData.readme
-  ${ParaView_SOURCE_DIR}/../ParaViewData
-  ${ParaView_BINARY_DIR}/../ParaViewData
-  $ENV{PARAVIEW_DATA_ROOT})
+# setup external data. this will automatically download the test
+# data and baseline files to the build tree and set PARAVIEW_DATA_ROOT.
+include(ParaViewExternalData)
+set(ExternalData_LINK_CONTENT MD5)
+set(ExternalData_BINARY_ROOT          "${CMAKE_BINARY_DIR}/ExternalData")
+set(PARAVIEW_TEST_DATA_DIR            "${CMAKE_CURRENT_SOURCE_DIR}/Testing/Data")
+set(PARAVIEW_TEST_BASELINE_DIR        "${PARAVIEW_TEST_DATA_DIR}/Baseline")
+set(PARAVIEW_TEST_OUTPUT_DATA_DIR     "${ExternalData_BINARY_ROOT}/Testing/Data")
+set(PARAVIEW_TEST_OUTPUT_BASELINE_DIR "${PARAVIEW_TEST_OUTPUT_DATA_DIR}/Baseline")
+set(PARAVIEW_TEST_OUTPUT_DIR          "${CMAKE_BINARY_DIR}/Testing/Temporary")
+set(PARAVIEW_DATA_ROOT "${PARAVIEW_TEST_OUTPUT_DATA_DIR}")
 
 if (APPLE)
   option(PARAVIEW_DO_UNIX_STYLE_INSTALLS
@@ -472,7 +470,9 @@ if (BUILD_TESTING AND PARAVIEW_INSTALL_DEVELOPMENT_FILES)
     -DPARAVIEW_TEST_DIR:PATH=${PARAVIEW_TEST_DIR}
     -DPARAVIEW_VERSION:STRING=${PARAVIEW_VERSION}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake/ParaViewTestInstall.cmake)
-  set_tests_properties(pv.TestDevelopmentInstall PROPERTIES LABELS "PARAVIEW")
+  set_tests_properties(pv.TestDevelopmentInstall PROPERTIES
+    LABELS "PARAVIEW"
+    ENVIRONMENT "DESTDIR=${CMAKE_BINARY_DIR}/test-install")
 endif()
 #------------------------------------------------------------------------------
 
@@ -725,6 +725,17 @@ if (NOT VTK_INSTALL_NO_DEVELOPMENT)
     DESTINATION ${VTK_INSTALL_PACKAGE_DIR}
     COMPONENT Development
   )
+
+  #we depend on a couple VTK CMake files that aren't installed but we need
+  #installed
+  install(
+    FILES ${CMAKE_CURRENT_SOURCE_DIR}/VTK/CMake/TopologicalSort.cmake
+          ${CMAKE_CURRENT_SOURCE_DIR}/VTK/CMake/vtkMakeInstantiator.h.in
+          ${CMAKE_CURRENT_SOURCE_DIR}/VTK/CMake/vtkMakeInstantiator.cxx.in
+    DESTINATION ${VTK_INSTALL_PACKAGE_DIR}
+    COMPONENT Development
+  )
+
 endif()
 
 #-----------------------------------------------------------------------------
@@ -783,4 +794,17 @@ endif()
 if (BUILD_TESTING)
   configure_file("${ParaView_CMAKE_DIR}/CTestCustom.cmake.in"
     "${CMAKE_CURRENT_BINARY_DIR}/CTestCustom.cmake" @ONLY)
+endif()
+
+#-----------------------------------------------------------------------------
+# Create target to download data from the ParaViewData group.  This must come
+# after all tests have been added that reference the group, so we put it last.
+ExternalData_Add_Target(ParaViewData)
+if(PARAVIEW_DATA_EXCLUDE_FROM_ALL)
+  set_property(TARGET ParaViewData PROPERTY EXCLUDE_FROM_ALL 1)
+  if(BUILD_TESTING)
+    message(WARNING "PARAVIEW_DATA_EXCLUDE_FROM_ALL is ON so test data "
+      "(needed because BUILD_TESTING is ON) may not be available "
+      "without manually building the 'ParaViewData' target.")
+  endif()
 endif()

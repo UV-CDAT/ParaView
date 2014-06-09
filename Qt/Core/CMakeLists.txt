@@ -91,10 +91,6 @@ set(Module_SRCS
   pqFormBuilder.h
   pqGraphLayoutStrategyInterface.cxx
   pqGraphLayoutStrategyInterface.h
-  pqHelperProxyRegisterUndoElement.cxx
-  pqHelperProxyRegisterUndoElement.h
-  pqHelperProxyStateLoader.cxx
-  pqHelperProxyStateLoader.h
   pqHistogramTableModel.cxx
   pqHistogramTableModel.h
   pqImageUtil.cxx
@@ -105,14 +101,10 @@ set(Module_SRCS
   pqLinksModel.h
   pqLinkViewWidget.cxx
   pqLinkViewWidget.h
-  pqLookupTableManager.cxx
-  pqLookupTableManager.h
   pqMultiSliceAxisWidget.cxx
   pqMultiSliceAxisWidget.h
   pqMultiSliceView.cxx
   pqMultiSliceView.h
-  pqNameCount.cxx
-  pqNameCount.h
   pqNonEditableStyledItemDelegate.cxx
   pqNonEditableStyledItemDelegate.h
   pqObjectBuilder.cxx
@@ -169,10 +161,6 @@ set(Module_SRCS
   pqRubberBandHelper.h
   pqScalarBarRepresentation.cxx
   pqScalarBarRepresentation.h
-  pqScalarBarVisibilityAdaptor.cxx
-  pqScalarBarVisibilityAdaptor.h
-  pqScalarOpacityFunction.cxx
-  pqScalarOpacityFunction.h
   pqScalarsToColors.cxx
   pqScalarsToColors.h
   pqServer.cxx
@@ -207,10 +195,6 @@ set(Module_SRCS
   pqSpreadSheetViewWidget.h
   pqStandardServerManagerModelInterface.cxx
   pqStandardServerManagerModelInterface.h
-  pqStandardViewModules.cxx
-  pqStandardViewModules.h
-  pqTextRepresentation.cxx
-  pqTextRepresentation.h
   pqTimeKeeper.cxx
   pqTimeKeeper.h
   pqTreeLayoutStrategyInterface.cxx
@@ -221,8 +205,6 @@ set(Module_SRCS
   pqViewExporterManager.cxx
   pqViewExporterManager.h
   pqView.h
-  pqViewModuleInterface.cxx
-  pqViewModuleInterface.h
   pqXMLEventObserver.cxx
   pqXMLEventObserver.h
   pqXMLEventSource.cxx
@@ -266,12 +248,10 @@ set (Module_MOC_HDRS
   pqFileDialogRecentDirsModel.h
   pqFlatTreeViewEventTranslator.h
   pqFormBuilder.h
-  pqHelperProxyStateLoader.h
   pqHistogramTableModel.h
   pqInterfaceTracker.h
   pqLinksModel.h
   pqLinkViewWidget.h
-  pqLookupTableManager.h
   pqMultiSliceAxisWidget.h
   pqMultiSliceView.h
   pqNonEditableStyledItemDelegate.h
@@ -298,8 +278,6 @@ set (Module_MOC_HDRS
   pqRepresentation.h
   pqRubberBandHelper.h
   pqScalarBarRepresentation.h
-  pqScalarBarVisibilityAdaptor.h
-  pqScalarOpacityFunction.h
   pqScalarsToColors.h
 #  pqScatterPlotRepresentation.h
   pqServerConfigurationCollection.h
@@ -313,8 +291,6 @@ set (Module_MOC_HDRS
   pqSpreadSheetViewSelectionModel.h
   pqSpreadSheetViewWidget.h
   pqStandardServerManagerModelInterface.h
-  pqStandardViewModules.h
-  pqTextRepresentation.h
   pqTimeKeeper.h
   pqUndoStack.h
   pqViewExporterManager.h
@@ -336,7 +312,7 @@ set (Module_RESOURCE_FILES
   "${CMAKE_CURRENT_SOURCE_DIR}/Resources/pqCore.qrc"
 )
 
-if (PARAVIEW_ENABLE_PYTHON AND PARAVIEW_ENABLE_MATPLOTLIB)
+if (PARAVIEW_ENABLE_MATPLOTLIB)
   list (APPEND Module_SRCS
     pqPythonView.cxx
     pqPythonView.h

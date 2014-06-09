@@ -3,13 +3,22 @@
 ###
 
 find_package(PythonInterp 2.7)
-if(NOT ${PythonInterp_FOUND})
+if(NOT ${PYTHONINTERP_FOUND})
   message(STATUS "Sufficient Python version not found, disabling pvweb tests")
   return()
 endif()
 
 include(ParaViewTestingMacros)
-include(FindPythonModules)
+#include(FindPythonModules)
+
+# Ensure data exists for the listFiles tests. These files are selected for
+# being tiny since their names are the only required part for the test.
+paraview_test_load_data_dirs(""
+  GMV # 24K
+  )
+paraview_test_load_data(""
+  sonic.pht # 279 bytes
+  )
 
 set (pv_pymodule_build_dir ${VTK_BUILD_PYTHON_MODULE_DIR})
 
@@ -45,17 +54,19 @@ set(WEB_TESTS_WITH_CHROME
   ${pv_pymodule_build_dir}/paraview/web/test/test_pv_web_visualizer_can_test.py
   )
 
+paraview_test_load_baselines_dirs(""
+  WebTesting/ParaView
+  )
+
 add_pvweb_tests("pvweb"
   APP          Visualizer
   COMMAND      $<TARGET_FILE:pvpython>
   SERVER       ${pv_pymodule_build_dir}/paraview/web/pv_web_visualizer.py
-  DEPEND_MODS  Image
-               selenium
   BROWSER      chrome
                firefox
                internet_explorer
                safari
-  BASELINE_DIR ${PARAVIEW_DATA_ROOT}/Baseline/WebTesting/ParaView
+  BASELINE_DIR ${PARAVIEW_TEST_OUTPUT_BASELINE_DIR}/WebTesting/ParaView
   TEST_SCRIPTS ${WEB_TESTS_WITH_CHROME}
   )
 
@@ -72,7 +83,6 @@ add_pvweb_tests("pvweb"
   COMMAND      $<TARGET_FILE:pvpython>
   SERVER       ${pv_pymodule_build_dir}/paraview/web/pv_web_test_app.py
   ARGS         --echo "test string to be retrieved by app"
-  DEPEND_MODS  requests
   TEST_SCRIPTS ${WEB_TESTS_WITH_REQUESTS}
   )
 
@@ -84,7 +94,6 @@ add_pvweb_tests("pvweb"
   APP          TestApp
   COMMAND      $<TARGET_FILE:pvpython>
   SERVER       ${pv_pymodule_build_dir}/paraview/web/pv_web_test_app.py
-  DEPEND_MODS  selenium
   BROWSER      chrome
                firefox
                internet_explorer

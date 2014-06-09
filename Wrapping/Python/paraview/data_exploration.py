@@ -4,7 +4,7 @@ exploration for Web deployment.
 """
 
 import math, os, json, datetime, time
-from paraview import simple
+from paraview import simple, servermanager
 
 #==============================================================================
 # Run management
@@ -23,6 +23,7 @@ class AnalysisManager():
         Then additional information can be added to the associated metadata
         in the form of keyword arguments.
         """
+        self.can_not_write = (servermanager.vtkProcessModule.GetProcessModule().GetPartitionId() != 0)
         self.file_name_generators = {}
         self.work_dir = work_dir
         self.timers = {}
@@ -125,6 +126,9 @@ class AnalysisManager():
         Write metadata file in the work directory that describe all the
         analysis that have been performed.
         """
+        if self.can_not_write:
+            return
+
         # Update timer info first
         self.analysis['timers'] = {}
         for key in self.timers:
@@ -160,13 +164,14 @@ class FileNameGenerator():
            {sliceColor}_{slicePosition}.jpg
            {contourBy}_{contourValue}_{theta}_{phi}.jpg
         """
+        self.can_write = (servermanager.vtkProcessModule.GetProcessModule().GetPartitionId() == 0)
         self.working_dir = working_dir
         self.name_format = name_format
         self.arguments = {}
         self.active_arguments = {}
         self.metadata = {}
         self.cost = { "time": 0, "space": 0, "images": 0}
-        if not os.path.exists(self.working_dir):
+        if not os.path.exists(self.working_dir) and self.can_write:
             os.makedirs(self.working_dir)
 
     def add_meta_data(self, key, value):
@@ -224,13 +229,13 @@ class FileNameGenerator():
         Return the full path of the file based on the current active arguments
         """
         fullpath = os.path.join(self.working_dir, self.get_filename())
-        if not os.path.exists(os.path.dirname(fullpath)):
+        if not os.path.exists(os.path.dirname(fullpath)) and self.can_write:
             os.makedirs(os.path.dirname(fullpath))
         return fullpath
 
     def get_directory(self):
         fullpath = os.path.join(self.working_dir, self.get_filename())
-        if not os.path.exists(os.path.dirname(fullpath)):
+        if not os.path.exists(os.path.dirname(fullpath)) and self.can_write:
             os.makedirs(os.path.dirname(fullpath))
         return os.path.dirname(fullpath)
 
@@ -243,6 +248,9 @@ class FileNameGenerator():
             if self._is_image(filePath):
                 self.cost['images'] = self.cost['images'] + 1
             self.cost['space'] += os.stat(filePath).st_size
+
+    def add_image_width(self, width):
+        self.cost['image-width'] = width
 
     def add_time_cost(self, ts):
         self.cost['time'] += ts
@@ -265,6 +273,9 @@ class FileNameGenerator():
         Write the info.json file in the working directory which contains
         the metadata of the current file usage with the arguments range.
         """
+        if not self.can_write:
+            return
+
         jsonObj = {
             "working_dir": self.working_dir,
             "name_pattern": self.name_format,
@@ -502,6 +513,7 @@ class SliceExplorer():
 
         # Update file name pattern
         self.file_name_generator = file_name_generator
+        self.file_name_generator.add_image_width(view.ViewSize[0])
 
     @staticmethod
     def list_arguments():
@@ -669,6 +681,8 @@ class ImageResampler():
             self.resampler.CustomSamplingBounds = custom_probing_bounds
         field = array_colors.keys()[0]
         self.color = simple.ColorByArray(Input=self.resampler, LookupTable=array_colors[field]['lut'], RGBANaNColor=nanColor, ColorBy=field )
+
+        self.file_name_generator.add_image_width(sampling_dimesions[0])
 
     @staticmethod
     def list_arguments():
@@ -1020,7 +1034,7 @@ class CompositeImageExporter():
     recomposed later on in the web.
     We assume the RGBZView plugin is loaded.
     """
-    def __init__(self, file_name_generator, data_list, colorBy_list, luts, camera_handler, view_size, data_list_pipeline, axisVisibility=1, orientationVisibility=1):
+    def __init__(self, file_name_generator, data_list, colorBy_list, luts, camera_handler, view_size, data_list_pipeline, axisVisibility=1, orientationVisibility=1, format='jpg'):
         '''
         data_list = [ds1, ds2, ds3]
         colorBy_list = [ [('POINT_DATA', 'temperature'), ('POINT_DATA', 'pressure'), ('POINT_DATA', 'salinity')],
@@ -1028,7 +1042,7 @@ class CompositeImageExporter():
                          [('SOLID_COLOR', [0.1,0.1,0.1])] ]
         luts = { 'temperature': vtkLookupTable(...),  'salinity': vtkLookupTable(...),  'pressure': vtkLookupTable(...), }
         data_list_pipeline = [ { 'name': 'Earth core'}, {'name': 'Slice'}, {'name': 'T=0', 'parent': 'Contour by temperature'}, ...]
-
+        format = ['jpg', 'tiff', 'png']
         '''
         self.file_name_generator = file_name_generator
         self.datasets = data_list
@@ -1039,6 +1053,7 @@ class CompositeImageExporter():
 
         # Create view and assembly manager
         self.view = simple.CreateView("RGBZView")
+        self.view.ImageFormatExtension = format
         self.view.ViewSize = view_size
         self.view.CenterAxesVisibility = axisVisibility
         self.view.OrientationAxesVisibility = orientationVisibility
@@ -1078,9 +1093,10 @@ class CompositeImageExporter():
 
         self.file_name_generator.add_meta_data('pipeline', pipeline)
         self.file_name_generator.add_meta_data('dimensions', view_size)
+        self.file_name_generator.add_image_width(view_size[0])
 
         # Add the name of both generated files
-        self.file_name_generator.update_active_arguments(filename='rgb.jpg')
+        self.file_name_generator.update_active_arguments(filename='rgb.%s' % format)
         self.file_name_generator.update_active_arguments(filename='composite.json')
 
     @staticmethod
@@ -1239,13 +1255,15 @@ class ThreeSixtyImageStackExporter():
         except ValueError:
             raise Exception("Rotation axis not supported", self.phi_rotation_axis)
 
+        self.file_name_generator.add_image_width(view_proxy.ViewSize[0])
+
     @staticmethod
     def list_arguments():
         return ['phi', 'theta']
 
     @staticmethod
     def get_data_type():
-        return "parametric-image-stack"
+        return "catalyst-viewer"
 
     def add_attribute(self, name, value):
         setattr(self, name, value)

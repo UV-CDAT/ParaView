@@ -33,9 +33,10 @@
 #include "vtkSMProxy.h"
 
 class vtkImageData;
-class vtkSMRepresentationProxy;
-class vtkView;
 class vtkRenderWindow;
+class vtkSMRepresentationProxy;
+class vtkSMSourceProxy;
+class vtkView;
 
 class VTKPVSERVERMANAGERRENDERING_EXPORT vtkSMViewProxy : public vtkSMProxy
 {
@@ -63,10 +64,36 @@ public:
   virtual void Update();
 
   // Description:
+  // Returns true if the view can display the data produced by the producer's
+  // port. Internally calls GetRepresentationType() and returns true only if the
+  // type is valid a representation proxy of that type can be created.
+  virtual bool CanDisplayData(vtkSMSourceProxy* producer, int outputPort);
+
+  // Description:
   // Create a default representation for the given source proxy.
   // Returns a new proxy.
+  // In version 4.1 and earlier, subclasses overrode this method. Since 4.2, the
+  // preferred way is to simply override GetRepresentationType(). That
+  // ensures that CreateDefaultRepresentation() and CanDisplayData() both
+  // work as expected.
   virtual vtkSMRepresentationProxy* CreateDefaultRepresentation(
     vtkSMProxy*, int);
+
+  // Description:
+  // Returns the xml name of the representation proxy to create to show the data
+  // produced in this view, if any. Default implementation checks if the
+  // producer has any "Hints" that define the representation to create in this
+  // view and if so, returns that.
+  // Or if this->DefaultRepresentationName is set and its Input property
+  // can accept the data produced, returns this->DefaultRepresentationName.
+  // Subclasses should override this method.
+  virtual const char* GetRepresentationType(
+    vtkSMSourceProxy* producer, int outputPort);
+
+  // Description:
+  // Finds the representation proxy showing the data produced by the provided
+  // producer, if any. Note the representation may not necessarily be visible.
+  virtual vtkSMRepresentationProxy* FindRepresentation(vtkSMSourceProxy* producer, int outputPort);
 
   // Description:
   // Captures a image from this view. Default implementation returns NULL.
@@ -86,18 +113,30 @@ public:
   // Description:
   // Return true any internal representation is dirty. This can be usefull to
   // know if the internal geometry has changed.
-  virtual bool HasDirtyRepresentation();
+  // DEPRECATED: Use GetNeedsUpdate() instead.
+  virtual bool HasDirtyRepresentation() { return this->GetNeedsUpdate(); }
 
   // Description:
-  // Return the render window from which offscreen rendering and interactor can
-  // be accessed
-  virtual vtkRenderWindow* GetRenderWindow();
+  // Returns true if the subsequent call to Update() will result in an actual
+  // update. If returned true, it means that the view thinks its rendering is
+  // obsolete and needs to be re-generated.
+  vtkGetMacro(NeedsUpdate, bool);
+
+  // Description:
+  // Return the vtkRenderWindow used by this view, if any. Note, views like
+  // vtkSMComparativeViewProxy can have more than 1 render window in play, in
+  // which case, using this method alone may yield incorrect results. Also,
+  // certain views don't use a vtkRenderWindow at all (e.g. Spreadsheet View),
+  // in which case, this method will return NULL. Default implementation returns
+  // NULL.
+  virtual vtkRenderWindow* GetRenderWindow() { return NULL; }
 
 //BTX
 protected:
   vtkSMViewProxy();
   ~vtkSMViewProxy();
 
+  //
   // Description:
   // Subclasses should override this method to do the actual image capture.
   virtual vtkImageData* CaptureWindowInternal(int vtkNotUsed(magnification))
@@ -106,6 +145,16 @@ protected:
   virtual vtkTypeUInt32 PreRender(bool vtkNotUsed(interactive))
     { return this->GetLocation(); }
   virtual void PostRender(bool vtkNotUsed(interactive)) {}
+
+  // Description:
+  // Subclasses should override this method and return false if the rendering
+  // context is not ready for rendering at this moment. This method is called in
+  // StillRender() and InteractiveRender() calls before the actual render to
+  // ensure that we don't attempt to render when the rendering context is not
+  // ready.
+  // Default implementation uses this->GetRenderWindow() and checks if that
+  // window is drawable.
+  virtual bool IsContextReadyForRendering();
 
   // Description:
   // Called at the end of CreateVTKObjects().

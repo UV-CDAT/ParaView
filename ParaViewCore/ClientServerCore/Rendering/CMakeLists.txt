@@ -33,6 +33,7 @@ set (Module_SRCS
   vtkAMROutlineRepresentation.cxx
   vtkAMRStreamingPriorityQueue.cxx
   vtkAMRStreamingVolumeRepresentation.cxx
+  vtkCacheSizeKeeper.cxx
   vtkCaveSynchronizedRenderers.cxx
   vtkChartRepresentation.cxx
   vtkChartSelectionRepresentation.cxx
@@ -74,6 +75,7 @@ set (Module_SRCS
   vtkPVProminentValuesInformation.cxx
   vtkPVRayCastPickingHelper.cxx
   vtkPVRenderView.cxx
+  vtkPVRenderViewSettings.cxx
   vtkPVRepresentedDataInformation.cxx
   vtkPVSelectionInformation.cxx
   vtkPVStreamingPiecesInformation.cxx
@@ -87,13 +89,14 @@ set (Module_SRCS
   vtkSpreadSheetRepresentation.cxx
   vtkSpreadSheetView.cxx
   vtkStructuredGridVolumeRepresentation.cxx
+  vtkTableExtentTranslator.cxx
   vtkTextSourceRepresentation.cxx
   vtkThreeSliceFilter.cxx
   vtkUnstructuredGridVolumeRepresentation.cxx
   vtkXYChartRepresentation.cxx
 )
 
-if (PARAVIEW_ENABLE_PYTHON AND PARAVIEW_ENABLE_MATPLOTLIB)
+if (PARAVIEW_ENABLE_MATPLOTLIB)
   list(APPEND Module_SRCS
     vtkMatplotlibUtilities.cxx
     vtkPythonRepresentation.cxx
@@ -106,11 +109,13 @@ if (PARAVIEW_USE_ICE_T)
     vtkIceTSynchronizedRenderers.cxx)
 endif()
 
-#set_source_files_properties(
-#  WRAP_EXCLUDE
-#  )
+set_source_files_properties(
+  vtkCacheSizeKeeper
+  WRAP_EXCLUDE
+)
 
 set_source_files_properties(
+  vtkCacheSizeKeeper
   vtkPVContextView
   vtkPVDataRepresentation
   vtkPVSynchronizedRenderWindows

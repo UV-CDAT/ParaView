@@ -82,7 +82,6 @@
 #include "vtkTCPNetworkAccessManager.h"
 #include "vtkTextSourceRepresentation.h"
 #include "vtkUnstructuredGridVolumeRepresentation.h"
-#include "vtkXMLPVAnimationWriter.h"
 #include "vtkXYChartRepresentation.h"
 
 #ifdef PARAVIEW_USE_MPI
@@ -102,7 +101,7 @@
   c = classname::New(); c->Print(cout); c->Delete();
 
 
-int main(int, char**)
+int ParaViewCoreClientServerCorePrintSelf(int, char*[])
 {
   vtkObject* c;
   PRINT_SELF(vtk3DWidgetRepresentation);
@@ -187,7 +186,6 @@ int main(int, char**)
   PRINT_SELF(vtkTCPNetworkAccessManager);
   PRINT_SELF(vtkTextSourceRepresentation);
   PRINT_SELF(vtkUnstructuredGridVolumeRepresentation);
-  PRINT_SELF(vtkXMLPVAnimationWriter);
   PRINT_SELF(vtkXYChartRepresentation);
 
 #ifdef PARAVIEW_USE_MPI

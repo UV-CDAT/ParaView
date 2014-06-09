@@ -45,7 +45,6 @@ class PQCORE_EXPORT pqXYFunctionalBagChartView : public pqContextView
 
 public:
   static QString XYFunctionalBagChartViewType() { return "XYFunctionalBagChartView"; }
-  static QString XYFunctionalBagChartViewTypeName() { return "FunctionalBag Chart View"; }
   /// Currently this chart view is not supporting selection.
   virtual bool supportsSelection() const { return false; }
 
@@ -57,9 +56,6 @@ public:
                  QObject* parent=NULL);
 
   virtual ~pqXYFunctionalBagChartView();
-
-  /// Set property values.
-  virtual void setDefaultPropertyValues();
 
 private:
   pqXYFunctionalBagChartView(const pqXYFunctionalBagChartView&); // Not implemented.

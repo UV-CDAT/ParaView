@@ -24,6 +24,7 @@
 
 #include "vtkObject.h"
 #include "vtkPVServerManagerApplicationModule.h" // needed for exports
+#include <string> // needed for std::string
 class vtkPVOptions;
 
 class VTKPVSERVERMANAGERAPPLICATION_EXPORT vtkInitializationHelper : public vtkObject
@@ -57,13 +58,41 @@ public:
   static void StandaloneInitialize();
   static void StandaloneFinalize();
 
+  // Description:
+  // During initialization, vtkInitializationHelper reads "settings" files for
+  // configuring vtkSMSettings. To disable this processing of the settings file
+  // for an application (e.g. in Catalyst), turn this off. On by default.
+  static void SetLoadSettingsFilesDuringInitialization(bool);
+  static bool GetLoadSettingsFilesDuringInitialization();
+
+  // Description:
+  // Sets the name of the application. This is "ParaView" by default, but
+  // can be different for branded applications.
+  static void SetApplicationName(const std::string & appName);
+  static std::string GetApplicationName();
+
 protected:
   vtkInitializationHelper() {};
   virtual ~vtkInitializationHelper() {};
 
+  // Description:
+  // Load settings
+  static bool LoadSettings();
+
+  // Description:
+  // Get directory for user settings file. The last character is always the
+  // file path separator appropriate for the system.
+  static std::string GetUserSettingsDirectory();
+
 private:
   vtkInitializationHelper(const vtkInitializationHelper&); // Not implemented
   void operator=(const vtkInitializationHelper&); // Not implemented
+
+  static bool LoadSettingsFilesDuringInitialization;
+
+  static bool SaveUserSettingsFileDuringFinalization;
+
+  static std::string ApplicationName;
 };
 
 #endif

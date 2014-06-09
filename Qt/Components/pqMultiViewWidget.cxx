@@ -38,7 +38,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "pqObjectBuilder.h"
 #include "pqServerManagerModel.h"
 #include "pqUndoStack.h"
-#include "pqViewFrameActionGroupInterface.h"
+#include "pqViewFrameActionsInterface.h"
 #include "pqViewFrame.h"
 #include "pqView.h"
 #include "vtkCommand.h"
@@ -73,6 +73,7 @@ public:
   // Set to true to place views in a separate popout widget.
   bool Popout;
   QWidget PopoutFrame;
+  bool DecorationsVisibleBeforeCapture;
 
   pqInternals(QWidget* self) :
     ObserverId(0),
@@ -85,6 +86,7 @@ public:
       Qt::WindowTitleHint|
       Qt::WindowMaximizeButtonHint|
       Qt::WindowCloseButtonHint);
+    this->DecorationsVisibleBeforeCapture = false;
     }
 
   ~pqInternals()
@@ -131,6 +133,21 @@ namespace
     return NULL;
     }
 
+  void ConnectFrameToView(pqViewFrame* frame, pqView* pqview)
+    {
+    Q_ASSERT(frame);
+    // if pqview == NULL, then the frame is either being assigned to a empty
+    // view, or pqview for a view-proxy just isn't present yet.
+    // it's possible that pqview is NULL, if the view proxy hasnt been registered
+    // yet. This happens often when initialization state is being loaded in
+    // collaborative sessions.
+    if (pqview != NULL)
+      {
+      QWidget* viewWidget = pqview->getWidget();
+      frame->setCentralWidget(viewWidget);
+      viewWidget->setParent(frame);
+      }
+    }
 
   /// A simple subclass of QBoxLayout mimicking the layout style of a QSplitter
   /// with just 2 widgets.
@@ -228,9 +245,7 @@ void pqMultiViewWidget::viewAdded(pqView* view)
     pqViewFrame* frame = this->Internals->ViewFrames[view->getViewProxy()];
     if (frame)
       {
-      QWidget* viewWidget = view->getWidget();
-      frame->setCentralWidget(viewWidget);
-      viewWidget->setParent(frame);
+      ConnectFrameToView(frame, view);
       }
     else
       {
@@ -430,23 +445,17 @@ pqViewFrame* pqMultiViewWidget::newFrame(vtkSMProxy* view)
   // it's possible that pqview is NULL, if the view proxy hasnt been registered
   // yet. This happens often when initialization state is being loaded in
   // collaborative sessions.
-  if (view && pqview)
-    {
-    QWidget* viewWidget = pqview->getWidget();
-    frame->setCentralWidget(viewWidget);
-    viewWidget->setParent(frame);
-    }
+  ConnectFrameToView(frame, pqview);
 
-  // Search for view frame action group plugins and allow them to decide
+  // Search for view frame actions plugins and allow them to decide
   // whether to add their actions to this view type's frame or not.
   pqInterfaceTracker* tracker =
     pqApplicationCore::instance()->interfaceTracker();
-  foreach (pqViewFrameActionGroupInterface* agi,
-    tracker->interfaces<pqViewFrameActionGroupInterface*>())
+  foreach (pqViewFrameActionsInterface* vfai,
+    tracker->interfaces<pqViewFrameActionsInterface*>())
     {
-    agi->connect(frame, pqview);
+    vfai->frameConnected(frame, pqview);
     }
-
   return frame;
 }
 
@@ -790,6 +799,7 @@ int pqMultiViewWidget::prepareForCapture(int dx, int dy)
   int magnification =  pqView::computeMagnification(requestedSize, mySize);
   this->setMaximumSize(mySize);
   this->resize(mySize);
+  this->Internals->DecorationsVisibleBeforeCapture = this->isDecorationsVisible();
   this->setDecorationsVisible(false);
   pqEventDispatcher::processEventsAndWait(1);
   return magnification;
@@ -799,7 +809,7 @@ int pqMultiViewWidget::prepareForCapture(int dx, int dy)
 void pqMultiViewWidget::cleanupAfterCapture()
 {
   this->setMaximumSize(QSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX));
-  this->setDecorationsVisible(true);
+  this->setDecorationsVisible(this->Internals->DecorationsVisibleBeforeCapture);
 }
 
 //-----------------------------------------------------------------------------

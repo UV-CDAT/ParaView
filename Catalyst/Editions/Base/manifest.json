@@ -190,6 +190,9 @@
     { "name":"vtkThirdPartyexpat",
       "path":"VTK/ThirdParty/expat"
     },
+    { "name":"vtkjsoncpp",
+      "path":"VTK/ThirdParty/jsoncpp"
+    },
     { "name":"vtkPVVTKExtensionsCore",
       "path":"ParaViewCore/VTKExtensions/Core",
       "cswrap":true,
@@ -229,6 +232,10 @@
     { "name":"vtkprotobuf",
       "path":"ThirdParty/protobuf"
     },
+    {
+      "name":"vtkpugixml",
+      "path":"ThirdParty/pugixml"
+    },
     { "path":"Wrapping" },
     { "path":"VTK/Copyright.txt" },
     { "path":"License_v1.2.txt" },
@@ -260,5 +267,10 @@
     { "path":"VTK/vtkLogo.ico" },
     { "path":"VTK/README.html" },
     { "path":"VTK/ThirdParty/utf8" }
+  ],
+  "proxies":[
+    { "path":"ParaViewCore/ServerManager/SMApplication/Resources/utilities.xml",
+      "proxies":[ "TimeKeeper" ]
+    }
   ]
 }
