@@ -8,21 +8,22 @@ sphere.ThetaResolution = 20
 
 clientsphere = servermanager.Fetch(sphere)
 if clientsphere.GetNumberOfPolys() != 720L:
-    raise smtesting.Error('Test failed: Problem fetching polydata.')
+    raise smtesting.TestError('Test failed: Problem fetching polydata.')
 
 elev = Elevation(sphere)
-mm = MinMax(None)
+mm = servermanager.filters.MinMax()
 mm.Operation = "MIN"
 
 mindata = servermanager.Fetch(elev, mm, mm)
 
 if mindata.GetPointData().GetNumberOfArrays() != 2:
-    raise smtesting.Error('Test failed: Wrong number of arrays.')
+    raise smtesting.TestError('Test failed: Wrong number of arrays.')
 
 array = mindata.GetPointData().GetArray('Elevation')
+print array.GetNumberOfTuples(), array.GetTuple1(0)
 
-if array.GetTuple1(0) != 0.0:
-    raise smtesting.Error('Test failed: Bad array value.')
+if array.GetTuple1(0) < 0.2 and array.GetTuple1(0) > 0.29:
+    raise smtesting.TestError('Test failed: Bad array value.')
 
 rep = Show(elev)
 ai = elev.PointData[1]
@@ -32,8 +33,7 @@ if ai.GetName() != 'Elevation':
 
 rng = ai.GetRange()
 rep.LookupTable = MakeBlueToRedLT(rng[0], rng[1])
-rep.ColorArrayName = 'Elevation'
-rep.ColorAttributeType = 'POINT_DATA'
+rep.ColorArrayName = ("POINT_DATA", 'Elevation')
 
 camera = GetActiveCamera()
 camera.Elevation(45)
@@ -41,5 +41,5 @@ camera.Elevation(45)
 ren = Render()
 
 if not smtesting.DoRegressionTesting(ren.SMProxy):
-    raise smtesting.Error('Image comparison failed.')
+    raise smtesting.TestError('Image comparison failed.')
 

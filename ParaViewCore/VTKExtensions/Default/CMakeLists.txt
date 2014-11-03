@@ -29,9 +29,12 @@
 #
 #==========================================================================
 set(Module_SRCS
+  vtkAMRConnectivity.cxx
   vtkAMRDualClip.cxx
   vtkAMRDualContour.cxx
   vtkAMRDualGridHelper.cxx
+  vtkAMRFragmentIntegration.cxx
+  vtkAMRFragmentsFilter.cxx
   vtkAMRFileSeriesReader.cxx
   vtkAppendArcLength.cxx
   vtkAppendRectilinearGrid.cxx
@@ -40,7 +43,7 @@ set(Module_SRCS
   vtkCleanUnstructuredGrid.cxx
   vtkCleanUnstructuredGridCells.cxx
   vtkCSVWriter.cxx
-  vtkDataSetToRectilinearGrid.cxx
+  vtkEnsembleReader.cxx
   vtkEquivalenceSet.cxx
   vtkExodusFileSeriesReader.cxx
   vtkExtractHistogram.cxx
@@ -51,6 +54,7 @@ set(Module_SRCS
   vtkFlashContour.cxx
   vtkGridConnectivity.cxx
   vtkHierarchicalFractal.cxx
+  vtkHybridProbeFilter.cxx
   vtkIntegrateAttributes.cxx
   vtkIntegrateFlowThroughSurface.cxx
 #  vtkInteractorStyleTransferFunctionEditor.cxx
@@ -67,11 +71,13 @@ set(Module_SRCS
   vtkMaterialInterfaceToProcMap.cxx
   vtkMergeArrays.cxx
   vtkMergeCompositeDataSet.cxx
+  vtkMetaReader.cxx
   vtkMinMax.cxx
   vtkParallelSerialWriter.cxx
   vtkPEnSightGoldBinaryReader.cxx
   vtkPEnSightGoldReader.cxx
   vtkPEnSightReader.cxx
+  vtkPEquivalenceSet.cxx
   vtkPExtractHistogram.cxx
   vtkPGenericEnSightReader.cxx
   vtkPhastaReader.cxx
@@ -86,6 +92,7 @@ set(Module_SRCS
   vtkPSciVizPCAStats.cxx
   vtkPVAMRDualClip.cxx
   vtkPVAMRDualContour.cxx
+  vtkPVAMRFragmentIntegration.cxx
   vtkPVArrayCalculator.cxx
   vtkPVBox.cxx
   vtkPVClipClosedSurface.cxx
@@ -97,9 +104,11 @@ set(Module_SRCS
   vtkPVEnSightMasterServerReader.cxx
   vtkPVEnSightMasterServerReader2.cxx
   vtkPVEnSightMasterServerTranslator.cxx
+  vtkPVExtractBagPlots.cxx
   vtkPVExtractVOI.cxx
   vtkPVFrustumActor.cxx
   vtkPVGlyphFilter.cxx
+  vtkPVLegacyGlyphFilter.cxx
   vtkPVImageReader.cxx
   vtkPVLinearExtrusionFilter.cxx
   vtkPVMetaClipDataSet.cxx
@@ -109,6 +118,7 @@ set(Module_SRCS
   vtkPVSelectionSource.cxx
   vtkPVTextSource.cxx
   vtkPVTransform.cxx
+  vtkPVTransposeTable.cxx
   vtkQuerySelectionSource.cxx
   vtkRectilinearGridConnectivity.cxx
   vtkScatterPlotMapper.cxx
@@ -116,6 +126,7 @@ set(Module_SRCS
   vtkSciVizStatistics.cxx
   vtkSpyPlotBlock.cxx
   vtkSpyPlotBlockIterator.cxx
+  vtkSpyPlotFileSeriesReader.cxx
   vtkSpyPlotHistoryReader.cxx
   vtkSpyPlotIStream.cxx
   vtkSpyPlotReader.cxx
@@ -123,17 +134,6 @@ set(Module_SRCS
   vtkSpyPlotUniReader.cxx
   vtkSurfaceVectors.cxx
   vtkTimeToTextConvertor.cxx
-# vtkTransferFunctionEditorRepresentation.cxx
-# vtkTransferFunctionEditorRepresentation1D.cxx
-# vtkTransferFunctionEditorRepresentationShapes1D.cxx
-# vtkTransferFunctionEditorRepresentationShapes2D.cxx
-# vtkTransferFunctionEditorRepresentationSimple1D.cxx
-# vtkTransferFunctionEditorWidget.cxx
-# vtkTransferFunctionEditorWidget1D.cxx
-# vtkTransferFunctionEditorWidgetShapes1D.cxx
-# vtkTransferFunctionEditorWidgetShapes2D.cxx
-# vtkTransferFunctionEditorWidgetSimple1D.cxx
-# vtkTransferFunctionViewer.cxx
   vtkUnstructuredPOPReader.cxx
   vtkVRMLSource.cxx
   vtkXMLCollectionReader.cxx
@@ -163,19 +163,17 @@ set_source_files_properties(
   vtkCellIntegrator
   vtkPEnSightReader
   vtkSciVizStatistics
-  vtkTransferFunctionEditorRepresentation
-  vtkTransferFunctionEditorRepresentation1D
-  vtkTransferFunctionEditorWidget
-  vtkTransferFunctionEditorWidget1D
   ABSTRACT)
 
 # Use a custom hints file for this module.
 set(${vtk-module}_WRAP_HINTS "${CMAKE_CURRENT_SOURCE_DIR}/hints")
 vtk_module_library(vtkPVVTKExtensionsDefault ${Module_SRCS})
+target_link_libraries(vtkPVVTKExtensionsDefault LINK_PRIVATE
+  ${vtkIOInfovis_LIBRARIES})
 
 OPTION(PARAVIEW_ENABLE_SPYPLOT_MARKERS
        "Enables markers in the spyplot reader"
-       OFF)
+       ON)
 MARK_AS_ADVANCED(PARAVIEW_ENABLE_SPYPLOT_MARKERS)
 
 IF(${PARAVIEW_ENABLE_SPYPLOT_MARKERS})

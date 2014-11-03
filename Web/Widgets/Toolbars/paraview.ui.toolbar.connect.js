@@ -4,15 +4,17 @@
  * This module extend jQuery object to add support for Remote connection
  * related to ParaViewWeb usage.
  *
+ * This module registers itself as: 'paraview-ui-toolbar-connect'
+ *
  * @class jQuery.paraview.ui.toolbar.connect
  */
 (function (GLOBAL, $) {
 
     var BASE_REMOTE_TOOLBAR_HTML =
     "<ul>"
-    + "<li class='action' action='connect'        alt='Connect to a remote pvserver' title='Connect to a remote pvserver'><div class='icon'></div></li>"
-    + "<li class='action' action='pvDisconnect'     alt='Disconnect' title='Disconnect'><div class='icon'></div></li>"
-    + "<li class='action' action='reverseConnect' alt='Wait for a remote server to connect' title='Wait for a remote server to connect'><div class='icon'></div></li>"
+    + "<li class='action' action='pv.remote.connect'         alt='Connect to a remote pvserver' title='Connect to a remote pvserver'><div class='icon'></div></li>"
+    + "<li class='action' action='pv.remote.disconnect'      alt='Disconnect' title='Disconnect'><div class='icon'></div></li>"
+    + "<li class='action' action='pv.remote.reverse.connect' alt='Wait for a remote server to connect' title='Wait for a remote server to connect'><div class='icon'></div></li>"
     + "</ul>\n",
     SESSION_DATA_KEY = 'paraview-session',
     CONNECT_ARG_KEYS = ['host', 'port', 'rs_host', 'rs_port'],
@@ -124,9 +126,9 @@
                 arg = Number(prompt("Wait connection on port:", "11111"));
             }
 
-            session.call("vtk:" + action, arg).then(function(){
+            session.call(action, [arg]).then(function(){
                 if(me.hasClass('close')) {
-                    session.call("vtk:exit");
+                    session.call("application.exit");
                     session.close();
                     setTimeout("window.close()", 100);
                 }
@@ -176,6 +178,20 @@
 
     function getToolbarWiget(anyInnerProxyWidget) {
         return anyInnerProxyWidget.closest('.paraview.toolbar.connect');
+    }
+
+    // ----------------------------------------------------------------------
+    // Local module registration
+    // ----------------------------------------------------------------------
+    try {
+      // Tests for presence of jQuery, then registers this module
+      if ($ !== undefined) {
+        vtkWeb.registerModule('paraview-ui-toolbar-connect');
+      } else {
+        console.error('Module failed to register, jQuery is missing: ' + err.message);
+      }
+    } catch(err) {
+      console.error('Caught exception while registering module: ' + err.message);
     }
 
 }(window, jQuery));

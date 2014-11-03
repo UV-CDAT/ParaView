@@ -75,8 +75,10 @@ vtkPVOptions::vtkPVOptions()
   this->SetStereoType("Anaglyph");
   this->Timeout = 0;
   this->EnableStackTrace = 0;
+  this->DisableRegistry = 0;
   this->ForceMPIInitOnClient = 0;
   this->ForceNoMPIInitOnClient = 0;
+  this->DisableXDisplayTests = 0;
 
   if (this->XMLParser)
     {
@@ -171,7 +173,8 @@ void vtkPVOptions::Initialize()
                     vtkPVOptions::PVCLIENT|vtkPVOptions::PARAVIEW);
 
   this->AddArgument("--connect-id", 0, &this->ConnectID,
-                    "Set the ID of the server and client to make sure they match.",
+                    "Set the ID of the server and client to make sure they "
+                    "match. 0 is reserved to imply none specified.",
                     vtkPVOptions::PVCLIENT | vtkPVOptions::PVSERVER |
                     vtkPVOptions::PVRENDER_SERVER | vtkPVOptions::PVDATA_SERVER);
   this->AddBooleanArgument("--use-offscreen-rendering", 0, &this->UseOffscreenRendering,
@@ -257,6 +260,15 @@ void vtkPVOptions::Initialize()
 
   this->AddBooleanArgument("--enable-bt", 0, &this->EnableStackTrace,
                            "Enable stack trace signal handler.");
+
+  this->AddBooleanArgument("--disable-registry", "-dr", &this->DisableRegistry,
+    "Do not use registry when running ParaView (for testing).");
+
+  this->AddBooleanArgument("--disable-xdisplay-test", 0, &this->DisableXDisplayTests,
+    "When specified, all X-display tests are skipped. Use this option if "
+    "you are getting remote-rendering disabled errors and you are positive that "
+    "the X environment is setup properly (experimental).",
+    vtkPVOptions::PVSERVER|vtkPVOptions::PVRENDER_SERVER|vtkPVOptions::PVBATCH);
 
 #if defined(PARAVIEW_USE_MPI)
   // We add these here so that "--help" on the process can print these variables
@@ -439,5 +451,6 @@ void vtkPVOptions::PrintSelf(ostream& os, vtkIndent indent)
 
   os << indent << "UseCudaInterop " << this->UseCudaInterop << std::endl;
   os << indent << "SatelliteMessageIds " << this->SatelliteMessageIds << std::endl;
-  os << indent << "PrintMonitors" << this->PrintMonitors << std::endl;
+  os << indent << "PrintMonitors: " << this->PrintMonitors << std::endl;
+  os << indent << "DisableXDisplayTests: " << this->DisableXDisplayTests << endl;
 }

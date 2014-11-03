@@ -17,10 +17,13 @@ vtk_module(vtkPVVTKExtensionsDefault
     vtkIOParallelExodus
     vtkPVVTKExtensionsCore
     vtkPVVTKExtensionsRendering
-    vtkPVClientServerCoreRendering
     vtkIOParallel
+    vtkIOParallelXML
     ${_dependencies}
-    vtknetcdf
   PRIVATE_DEPENDS
+    vtkIOInfovis
+    vtknetcdf
     vtksys
+  KIT
+    vtkPVExtensions
 )

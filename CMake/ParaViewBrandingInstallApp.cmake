@@ -10,7 +10,7 @@ endif()
 # at the specified locations. This will create a workable bundle that works on
 # the machine where its built (since it relies on other shared frameworks and
 # libraries) e.g. python
-macro(cleanup_bundle app app_root libdir pluginsdir)
+macro(cleanup_bundle app app_root libdir pluginsdir datadir)
   # take all libs from ${ARGN} and put it in the Libraries dir.
   file(GLOB_RECURSE dylibs ${libdir}/*.dylib)
   file(GLOB_RECURSE solibs ${libdir}/*.so)
@@ -33,17 +33,18 @@ macro(cleanup_bundle app app_root libdir pluginsdir)
   endif()
 
   # Handle any python package/module
-  file(GLOB pyModules ${libdir}/site-packages/*)
-  foreach(pyModule IN LISTS pyModules)
-    if (EXISTS "${pyModule}/")
-      file(INSTALL "${pyModule}"
-           DESTINATION ${app_root}/Contents/Python
-           USE_SOURCE_PERMISSIONS)
-    endif()
-  endforeach()
+  if (IS_DIRECTORY "${libdir}/site-packages")
+    file(INSTALL "${libdir}/site-packages/"
+       DESTINATION ${app_root}/Contents/Python
+       USE_SOURCE_PERMISSIONS)
+  endif ()
 
   # Package web server content
-  # FIXME file(INSTALL ${libdir}/www DESTINATION ${app_root}/Contents)
+  if (IS_DIRECTORY "${datadir}/www")
+    file(INSTALL "${datadir}/www/"
+       DESTINATION ${app_root}/Contents/www
+       USE_SOURCE_PERMISSIONS)
+  endif ()
 
   # package other executables such as pvserver.
   get_filename_component(bin_dir "${app_root}" PATH)
@@ -56,3 +57,15 @@ macro(cleanup_bundle app app_root libdir pluginsdir)
     endif()
   endforeach()
 endmacro()
+
+# When doing unix-style installs, we purge the "app" bundle, instead install the
+# executable as a command line executable.
+function(convert_bundle_to_executable app app_root bin_dir)
+  # copy the executable in the app bundle.
+  file(INSTALL ${app}
+       DESTINATION ${bin_dir}
+       USE_SOURCE_PERMISSIONS)
+
+  # now delete the app bundle.
+  file(REMOVE_RECURSE ${app_root})
+endfunction()

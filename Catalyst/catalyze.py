@@ -13,6 +13,7 @@ import os
 import subprocess
 import shutil
 import fnmatch
+from xml.etree import ElementTree as ET
 import argparse
 import json
 import stat
@@ -38,6 +39,63 @@ def _get_argument_parser():
 
   return parser
 
+def edition_name(dir):
+  base = os.path.basename(dir)
+  if not base:
+    base = os.path.basename(os.path.dirname(dir))
+  return base
+
+def filter_proxies(fin, fout, proxies, all_proxies):
+  root = ET.fromstring(fin.read())
+  if not root.tag == 'ServerManagerConfiguration':
+    raise RuntimeError('Invalid ParaView XML file input')
+  new_tree = ET.Element('ServerManagerConfiguration')
+  proxy_tags = (
+    'CameraProxy',
+    'ChartRepresentationProxy',
+    'ComparativeViewProxy',
+    'ContextViewProxy',
+    'MultiSliceViewProxy',
+    'NullProxy',
+    'ParallelCoordinatesRepresentationProxy',
+    'PlotMatrixViewProxy',
+    'Proxy',
+    'PVRepresentationProxy',
+    'PSWriterProxy',
+    'PWriterProxy',
+    'PythonViewProxy',
+    'RenderViewProxy',
+    'RepresentationProxy',
+    'SourceProxy',
+    'SpreadSheetRepresentationProxy',
+    'TimeKeeperProxy',
+    'TransferFunctionProxy',
+    'ViewLayoutProxy',
+    'WriterProxy')
+  def is_wanted(proxy):
+    return proxy.tag in proxy_tags and \
+           'name' in proxy.attrib and \
+           proxy.attrib['name'] in proxies
+  for group in root.iter('ProxyGroup'):
+    new_proxies = filter(is_wanted, list(group))
+    for proxy in new_proxies:
+      removed_subproxies = []
+      for subproxy in proxy.iter('SubProxy'):
+        for p in subproxy.iter('Proxy'):
+          if p.attrib['proxyname'] not in all_proxies:
+            removed_subproxies.append(p.attrib['name'])
+            proxy.remove(subproxy)
+            break
+      for reptype in proxy.iter('RepresentationType'):
+        if reptype.attrib['subproxy'] in removed_subproxies:
+          proxy.remove(reptype)
+    if new_proxies:
+      new_group = ET.Element(group.tag, group.attrib)
+      map(new_group.append, new_proxies)
+      new_tree.append(new_group)
+
+  fout.write(ET.tostring(new_tree))
+
 def error(err):
   print >> sys.stderr, "Error: %s" % str(err)
   sys.exit(-1)
@@ -50,20 +108,24 @@ def copy_path(src, dest, exclude):
     else:
       dest_parent_dir = os.path.dirname(dest)
       if not os.path.exists(dest_parent_dir):
-        os.makedirs(dest_parent_dir);
+        os.makedirs(dest_parent_dir)
       shutil.copyfile(src, dest)
   except (IOError, shutil.Error, os.error) as err:
     error(err)
 
 def replace_paths(config, paths):
   for replace in paths:
-    replace_with = config.current_input_dir + '/' + replace['path']
+    replace_with = os.path.join(config.current_input_dir, replace['path'])
     if os.path.isdir(replace_with):
       error('%s is a directory, only support replacing a file' % replace_with)
+    output = os.path.join(config.output_dir, replace['path'])
+    dest_parent_dir = os.path.dirname(output)
+    if not os.path.exists(dest_parent_dir):
+      os.makedirs(dest_parent_dir)
     if not os.path.exists(replace_with):
       error('%s doesn\'t exist' % replace_with)
     try:
-      shutil.copyfile(replace_with, config.output_dir + '/' + replace['path'])
+      shutil.copyfile(replace_with, output)
     except shutil.Error as err:
       error(err)
 
@@ -71,39 +133,70 @@ def patch_path(config, path_entry):
   work_dir = config.output_dir
 
   if path_entry['path'].startswith('VTK/'):
-    work_dir = work_dir + '/VTK'
+    work_dir = os.path.join(work_dir, 'VTK')
 
   try:
-    p = subprocess.Popen(['/usr/bin/patch', '-p1'], cwd=work_dir, stdin=subprocess.PIPE)
+    p = subprocess.Popen(['patch', '-p1'], cwd=work_dir, stdin=subprocess.PIPE)
     patch = '\n'.join(path_entry['patch'])
     p.stdin.write(patch+'\n')
-    p.stdin.close();
+    p.stdin.close()
     p.wait()
     if p.returncode != 0:
       error('Failed to apply patch for: %s' % path_entry['path'])
   except Exception as err:
     error(err)
 
+def run_patches(config, path_entry):
+  work_dir = config.output_dir
+  editions = map(edition_name, config.input_dirs)
+
+  try:
+    for patch in path_entry['patches']:
+      if 'if-edition' in patch and patch['if-edition'] not in editions:
+        continue
+      p = subprocess.Popen(['patch', '-p1'], cwd=work_dir, stdin=subprocess.PIPE)
+      patch_path = os.path.join(config.current_input_dir, patch['path'])
+      with open(patch_path) as patch_file:
+        p.stdin.write(patch_file.read())
+      p.stdin.close()
+      p.wait()
+      if p.returncode != 0:
+        error('Failed to apply patch for: %s' % path_entry['path'])
+  except Exception as err:
+    error(err)
+
 def include_paths(config, src_base, dest_base, paths):
+  classes = []
   for inc in paths:
-    inc_src = src_base + '/' + inc['path']
-    inc_des = dest_base + '/' + inc['path']
-    copy_path(inc_src, inc_des, [])
+    if 'class' in inc:
+      inc_src = os.path.join(src_base, '%s.h' % inc['class'])
+      inc_des = os.path.join(dest_base, '%s.h' % inc['class'])
+      copy_path(inc_src, inc_des, [])
+      inc_src = os.path.join(src_base, '%s.cxx' % inc['class'])
+      inc_des = os.path.join(dest_base, '%s.cxx' % inc['class'])
+      copy_path(inc_src, inc_des, [])
+      classes.append(inc['class'])
+    else:
+      inc_src = os.path.join(src_base, inc['path'])
+      inc_des = os.path.join(dest_base, inc['path'])
+      copy_path(inc_src, inc_des, [])
+  return classes
 
 def copy_paths(config, paths):
   try:
     for path_entry in paths:
-      src = config.repo + '/' + path_entry['path']
-      dest = config.output_dir + '/' + path_entry['path']
+      classes = []
+      src = os.path.join(config.repo, path_entry['path'])
+      dest = os.path.join(config.output_dir, path_entry['path'])
       dest_parent_dir = os.path.dirname(dest)
       if not os.path.exists(dest_parent_dir):
-        os.makedirs(dest_parent_dir);
+        os.makedirs(dest_parent_dir)
 
       exclude = []
 
       # exclude an paths listed.
       if 'exclude' in path_entry:
-        exclude = map(lambda d: d['path'], path_entry['exclude']);
+        exclude = map(lambda d: d['path'], path_entry['exclude'])
 
       # if we are replacing the file then don't bother copying
       if 'replace' in path_entry:
@@ -111,7 +204,7 @@ def copy_paths(config, paths):
 
       if 'include' in path_entry:
         exclude.append('*')
-        include_paths(config, src, dest, path_entry['include'])
+        classes += include_paths(config, src, dest, path_entry['include'])
 
       # do the actual copy
       copy_path(src, dest, exclude)
@@ -122,11 +215,22 @@ def copy_paths(config, paths):
       if 'patch' in path_entry:
         patch_path(config, path_entry)
 
+      if 'patches' in path_entry:
+        run_patches(config, path_entry)
+
+      if classes:
+        edition_name = os.path.basename(config.current_input_dir)
+        with open(os.path.join(dest, '%s.catalyst.cmake' % edition_name), 'w+') as fout:
+          fout.write('list(APPEND Module_SRCS\n')
+          for cls in classes:
+            fout.write('  %s.cxx\n' % cls)
+          fout.write('  )')
+
   except (IOError, os.error) as err:
     error(err)
 
 def create_cmake_script(config, manifest_list):
-  cmake_script='#!/bin/bash\n';
+  cmake_script='#!/bin/bash\n'
   cs_modules = set()
   python_modules = set()
 
@@ -144,6 +248,7 @@ def create_cmake_script(config, manifest_list):
 
   # ClientServer wrap
   cmake_script += 'cmake \\\n'
+  cmake_script += '  --no-warn-unused-cli\\\n'
   cmake_script += '  -DPARAVIEW_CS_MODULES:STRING="%s" \\\n' % (';'.join(cs_modules))
   # Python modules
   cmake_script+='  -DVTK_WRAP_PYTHON_MODULES:STRING="%s" \\\n' % (';'.join(python_modules))
@@ -159,9 +264,9 @@ def create_cmake_script(config, manifest_list):
 
   cmake_script+='  -DPARAVIEW_GIT_DESCRIBE="%s" \\\n' % version.strip()
 
-  cmake_script += ' $@\n'
+  cmake_script += ' "$@"\n'
 
-  file = config.output_dir + '/cmake.sh'
+  file = os.path.join(config.output_dir, 'cmake.sh')
 
   try:
     with open(file, 'w') as fd:
@@ -185,18 +290,59 @@ def cmake_cache(config, manifest_list):
 
 def process(config):
 
+  editions = set()
+  all_editions = set(map(edition_name, config.input_dirs))
   all_manifests = []
+  all_proxies = []
   for input_dir in config.input_dirs:
     print "Processing ", input_dir
-    with open(input_dir + '/manifest.json' , 'r') as fp:
+    with open(os.path.join(input_dir, 'manifest.json'), 'r') as fp:
       manifest = json.load(fp)
       config.current_input_dir  = input_dir
+      editions.add(manifest['edition'])
+      if manifest.has_key('requires'):
+        required = set(manifest['requires'])
+        diff = required.difference(editions)
+        if len(diff):
+          missing = ', '.join(list(diff))
+          raise RuntimeError('Missing required editions: %s' % missing)
+      if manifest.has_key('after'):
+        after = set(manifest['after'])
+        adiff = after.difference(editions)
+        diff = adiff.intersection(all_editions)
+        if len(diff):
+          missing = ', '.join(list(diff))
+          raise RuntimeError('Editions must come before %s: %s' % (manifest['edition'], missing))
       if manifest.has_key('paths'):
         copy_paths(config, manifest['paths'])
       if manifest.has_key('modules'):
         copy_paths(config, manifest['modules'])
+      if manifest.has_key('proxies'):
+        all_proxies.append(manifest['proxies'])
 
       all_manifests.append(manifest)
+
+  proxy_map = {}
+  _all_proxies = []
+  for proxies in all_proxies:
+    for proxy in proxies:
+      path = proxy['path']
+      if path not in proxy_map:
+        proxy_map[path] = []
+      proxy_map[path] += proxy['proxies']
+      _all_proxies += proxy['proxies']
+  all_proxies = set(_all_proxies)
+
+  for proxy_file, proxies in proxy_map.items():
+    input_path = os.path.join(config.repo, proxy_file)
+    output_path = os.path.join(config.output_dir, proxy_file)
+    output_dir = os.path.dirname(output_path)
+    if not os.path.exists(output_dir):
+      os.makedirs(output_dir)
+
+    with open(input_path, 'r') as fin:
+      with open(output_path, 'w+') as fout:
+        filter_proxies(fin, fout, set(proxies), all_proxies)
 
   create_cmake_script(config, all_manifests)
 
@@ -216,6 +362,8 @@ def main():
   config.repo = path.strip()
 
   # cleanup output directory.
+  if os.path.exists(os.path.join(config.output_dir, '.git')):
+    error('Refusing to output into a git repository')
   shutil.rmtree(config.output_dir, ignore_errors=True)
 
   process(config)

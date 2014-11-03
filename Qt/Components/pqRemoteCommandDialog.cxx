@@ -323,6 +323,13 @@ pqRemoteCommandDialog::pqRemoteCommandDialog(
     this, SLOT(FindXTermExecutable()));
 
   QObject::connect(
+    this->Ui->pvHost, SIGNAL(textChanged(const QString &)),
+    this, SLOT(UpdateTokenValues()));
+  QObject::connect(
+    this->Ui->pvHost, SIGNAL(textChanged(const QString &)),
+    this, SLOT(UpdateCommandPreview()));
+
+  QObject::connect(
     this->Ui->xtOpts, SIGNAL(textChanged(const QString &)),
     this, SLOT(UpdateTokenValues()));
   QObject::connect(
@@ -407,6 +414,7 @@ void pqRemoteCommandDialog::Restore()
 void pqRemoteCommandDialog::SetActiveHost(string host)
 {
   this->TokenValues[PV_HOST]=host;
+  this->Ui->pvHost->setText (host.c_str());
   this->UpdateCommandPreview();
 }
 
@@ -481,16 +489,19 @@ void pqRemoteCommandDialog::EditCommandTemplate()
 void pqRemoteCommandDialog::UpdateTokenValues()
 {
   this->TokenValues[TERM_EXEC]
-    = (const char *)this->Ui->xtExec->text().toAscii();
+    = (const char *)this->Ui->xtExec->text().toLatin1();
 
   this->TokenValues[TERM_OPTS]
-    = (const char *)this->Ui->xtOpts->text().toAscii();
+    = (const char *)this->Ui->xtOpts->text().toLatin1();
 
   this->TokenValues[SSH_EXEC]
-    = (const char *)this->Ui->sshExec->text().toAscii();
+    = (const char *)this->Ui->sshExec->text().toLatin1();
+
+  this->TokenValues[PV_HOST]
+    = (const char *)this->Ui->pvHost->text().toLatin1();
 
   this->TokenValues[FE_URL]
-    = (const char *)this->Ui->feUrl->text().toAscii();
+    = (const char *)this->Ui->feUrl->text().toLatin1();
 }
 
 //-----------------------------------------------------------------------------
@@ -503,7 +514,7 @@ void pqRemoteCommandDialog::UpdateForm()
   // all the time is probably the best thing to do.
   /*
   string command
-    = (const char*)this->Ui->commandTemplates->currentText().toAscii();
+    = (const char*)this->Ui->commandTemplates->currentText().toLatin1();
 
   int nWidgets = this->TokenWidgets.size();
   for (int i=0; i<nWidgets; ++i)
@@ -525,7 +536,7 @@ string pqRemoteCommandDialog::GetCommand()
 {
   string command
     = (const char*)this->Ui->commandTemplates->itemData(
-        this->Ui->commandTemplates->currentIndex()).toString().toAscii();
+        this->Ui->commandTemplates->currentIndex()).toString().toLatin1();
 
   size_t nTokens = this->TokenValues.size();
   for (size_t i=0; i<nTokens; ++i)
@@ -570,7 +581,7 @@ string pqRemoteCommandDialog::LocateFile()
 
   if (dialog.exec()==QDialog::Accepted)
     {
-    string filename((const char *)dialog.getSelectedFiles()[0].toAscii());
+    string filename((const char *)dialog.getSelectedFiles()[0].toLatin1());
     // escape whitespace
     ::searchAndReplace(" ","^",filename);
     return filename;

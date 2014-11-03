@@ -4,6 +4,8 @@
  * This module extend jQuery object to add support for graphical components
  * related to ParaViewWeb usage.
  *
+ * This module registers itself as: 'paraview-ui-pipeline'
+ *
  * @class jQuery.paraview.ui.PipelineBrowser
  */
 (function (GLOBAL, $) {
@@ -379,43 +381,8 @@
         icon: 'filter',
         category: 'filter'
     }],
-    DEFAULT_FILES =  [{
-        name: 'can.ex2',
-        path: '/can.ex2'
-    },{
-        name: 'cow.vtu',
-        path: '/cow.vtu'
-    },{
-        name: 'VTKData',
-        path: '/VTKData',
-        children: [{
-            name: 'cow.vtu',
-            path: '/VTKData/cow.vtu'
-        },{
-            name: 'sphere.vtu',
-            path: '/VTKData/sphere.vtu'
-        }]
-    },{
-        name: 'ParaViewData',
-        path: '/ParaViewData',
-        children: [{
-            name: 'asfdg.vtu',
-            path: '/ParaViewData/asfdg.vtu'
-        },{
-            name: 'can.ex2',
-            path: '/ParaViewData/can.ex2'
-        },{
-            name: 'AnotherDir',
-            path: '/ParaViewData/AnotherDir',
-            children: [{
-                name: 'aaaaa.vtu',
-                path: '/ParaViewData/AnotherDir/aaaaa.vtu'
-            },{
-                name: 'bbbbb.ex2',
-                path: '/ParaViewData/AnotherDir/bbbbb.ex2'
-            }]
-        }]
-    }], buffer = null;
+    busyStatus = 0,
+    buffer = null;
 
 
     // =======================================================================
@@ -428,15 +395,17 @@
      *
      * @member jQuery.paraview.ui.PipelineBrowser
      * @method pipelineBrowser
-     * @param {pv.PipelineBrowserConfig} options
+     * @param {Object} options
      *
      * Usage:
+     *
      *      $('.pipeline-container-div').pipelineBrowser({
      *          session: sessionObj,
      *          pipeline: pipeline,
      *          sources: sourceList,
      *          files: fileList,
-     *          title: 'Kitware'
+     *          title: 'Kitware',
+     *          cacheFiles: false
      *      });
      */
     $.fn.pipelineBrowser = function(options) {
@@ -444,7 +413,8 @@
         var opts = $.extend({},$.fn.pipelineBrowser.defaults, options);
 
         return this.each(function() {
-            var me = $(this).empty().addClass('pipelineBrowser view-pipeline');
+            var me = $(this).empty().addClass('pipelineBrowser view-pipeline'),
+            session = opts.session;
 
             // Initialize global html buffer
             if (buffer === null) {
@@ -460,6 +430,21 @@
             addPipelineToBuffer(opts.title, opts);
             me[0].innerHTML = buffer.toString();
 
+            // Initialize file section
+            $('.pipeline-files').fileBrowser({session: session, cacheFiles: opts.cacheFiles}).bind('file-click file-group-click', function(e){
+                pipeline = getPipeline(me), toggleButton = $('.files.active', pipeline);
+                pipeline.removeClass(PIPELINE_VIEW_TYPES).addClass('view-pipeline');
+                toggleButton.removeClass('active');
+
+                fireBusy(pipeline, true);
+                session.call("pv.pipeline.manager.file.ropen", [e.relativePathList]).then(function(newFile){
+                    dataChanged(me);
+                    addProxy(me, 0, newFile);
+                    fireAddSource(pipeline, newFile, 0);
+                    fireBusy(pipeline, false);
+                });
+            });
+
             // Initialize pipelineBrowser (Visibility + listeners)
             initializeListener(me);
 
@@ -468,48 +453,12 @@
         });
     };
 
-    /**
-     * @class pv.PipelineBrowserConfig
-     * Configuration object used to create a Pipeline Browser Widget.
-     *
-     *     DEFAULT_VALUES = {
-     *       session: null,
-     *       pipeline: DEFAULT_PIPELINE,
-     *       sources: DEFAULT_SOURCES,
-     *       files: DEFAULT_FILES
-     *     }
-     */
     $.fn.pipelineBrowser.defaults = {
-        /**
-         * @member pv.PipelineBrowserConfig
-         * @property {pv.Session} session
-         * Session used to be attached with the given pipeline.
-         */
         session: null,
-        /**
-         * @member pv.PipelineBrowserConfig
-         * @property {reply.Pipeline} pipeline
-         * Pipeline used to initialized the widget.
-         */
         pipeline: DEFAULT_PIPELINE,
-        /**
-         * @member pv.PipelineBrowserConfig
-         * @property {pv.Algorithm} sources[]
-         * List of source and filters available for the pipeline.
-         */
         sources: DEFAULT_SOURCES,
-        /**
-         * @member pv.PipelineBrowserConfig
-         * @property {reply.FileList[]} files
-         * List of files and directory accessible to the pipeline browser.
-         */
-        files: DEFAULT_FILES,
-        /**
-         * @member pv.PipelineBrowserConfig
-         * @property {String} title
-         * Label used inside the pipeline browser title bar
-         */
-        title: 'Kitware'
+        title: 'Kitware',
+        cacheFiles: true
     };
 
     /**
@@ -580,6 +529,9 @@
         // Update property panel
         updateProxyProperties(pipelineBrowser, proxy);
 
+        $('.proxy-control', pipelineBrowser).removeClass('selected');
+        $('.proxy-control:eq(0)', proxyWidget).addClass('selected');
+
         // Allow delete ?
         if(activeProxyId === 0 || $('ul', proxyWidget).children().length > 0) {
             $('.pipeline-control .delete-proxy', getPipeline(uiWidget)).addClass('disabled');
@@ -593,21 +545,6 @@
             type: 'proxySelected',
             proxy_id: activeProxyId
         });
-    }
-
-    /**
-     * Event that get triggered when a request for a new file open is made.
-     * @member jQuery.paraview.ui.PipelineBrowser
-     * @event openFile
-     * @param {String} path
-     * File path that is requested to be open.
-     */
-    function fireOpenFile(uiWidget, filePath) {
-        getPipeline(uiWidget).trigger({
-            type: 'openFile',
-            path: filePath
-        });
-        dataChanged(uiWidget);
     }
 
     /**
@@ -686,6 +623,23 @@
 
     function dataChanged(uiWidget) {
         getPipeline(uiWidget).trigger('dataChanged');
+    }
+
+    /**
+     * Event triggered when the pipeline browser changes busy states
+     *
+     * @member jQuery.paraview.ui.PipelineBrowser
+     * @event busy
+     * @param {Boolean} status
+     * True when pipeline is busy, false otherwise
+     */
+
+    function fireBusy(uiWidget, isBusy) {
+        busyStatus += (isBusy ? 1 : -1);
+        getPipeline(uiWidget).trigger({
+            type: 'busy',
+            status: (busyStatus > 0)
+        });
     }
 
     // =======================================================================
@@ -868,7 +822,7 @@
     // =======================================================================
 
     function addProxy(pipelineBrowser, parentId, newNode) {
-        var container, parentProxy;
+        var container, parentProxy, newProxyContainer;
 
         // Handle data model part
         parentProxy = getProxy(pipelineBrowser, parentId);
@@ -879,7 +833,15 @@
         if(parentId === 0) {
             container = $('li.server > ul', pipelineBrowser);
         } else {
+            proxyWidget = $('.proxy[proxy_id=' + parentId + '] > .proxy-control > .representation', pipelineBrowser);
             container = $('.proxy[proxy_id=' + parentId + '] > ul', pipelineBrowser);
+
+            // Update data model for new representation
+            parentProxy.representation = 'Hide';
+            // Update UI to hide proxy
+            proxyWidget.removeClass(PIPELINE_REPRESENTATION_NAMES).addClass('hide');
+            // Hide parent proxy
+            fireProxyChange(container, 'representation', { 'representation': 'Hide' })
         }
 
         // Generate html
@@ -891,6 +853,10 @@
 
         // Attach listeners
         initializeListener(container);
+
+        // Set that proxy to be active
+        newProxyContainer = $('.proxy[proxy_id=' + newNode['proxy_id'] + '] .proxy-control', container);
+        fireProxySelected(newProxyContainer);
     }
 
     // =======================================================================
@@ -957,9 +923,7 @@
 
 
         // Build file selector
-        buffer.append("<div class='pipeline-files'>");
-        addFilePanelToBuffer(data.files, "ROOT", null);
-        buffer.append("</div>");
+        buffer.append("<div class='pipeline-files'></div>");
 
         // Build source/filter selector
         buffer.append("<div class='pipeline-sources'>");
@@ -969,8 +933,7 @@
         // Build pipeline-editor
         buffer.append("<div class='pipeline-editor'>");
         buffer.append("<div class='pipeline-editor-header'><div class='label'>Property panel</div><div class='pipeline-control'><div class='action reset'><div class='icon' alt='Reset to default values' title='Reset to default values'></div></div><div class='action apply'><div class='icon' alt='Apply changes' title='Apply changes'></div></div></div></div>");
-        buffer.append("<div class='pipeline-editor-content'>");
-        buffer.append("</div>");
+        buffer.append("<div class='pipeline-editor-content'></div>");
     }
 
     // =======================================================================
@@ -1033,53 +996,6 @@
             addProxiesToBuffer(proxy.children);
         }
         buffer.append("</li>");
-    }
-
-    // =======================================================================
-
-    function addFilePanelToBuffer(fileList, panelClassName, parentClassName) {
-        if(fileList === null || fileList === undefined) {
-            return;
-        }
-
-        var childrenList = [], i;
-        buffer.append("<ul class='file-panel ");
-        buffer.append(panelClassName);
-        buffer.append("'");
-        if(parentClassName != null) {
-            buffer.append(" style='display: none;'");
-        }
-        buffer.append(">");
-        if(parentClassName) {
-            buffer.append("<li class='parent menu-link' link='");
-            buffer.append(parentClassName);
-            buffer.append("'>..</li>");
-        }
-        for(i in fileList) {
-            if(fileList[i].hasOwnProperty("children") && fileList[i].children.length > 0) {
-                buffer.append("<li class='child menu-link' link='");
-                var obj = {
-                    id: fileList[i].path.replace(/\//g, "_"),
-                    children: fileList[i].children
-                };
-                childrenList.push(obj);
-                buffer.append(obj.id);
-                buffer.append("'><div class='icon'></div>");
-            } else {
-                buffer.append("<li class='open-file' path='");
-                buffer.append(fileList[i].path);
-                buffer.append("'><div class='icon'></div>");
-            }
-            buffer.append(fileList[i].name);
-            buffer.append("</li>");
-        }
-
-        buffer.append("</ul>\n");
-
-        // Add all child panels
-        for(i in childrenList) {
-            addFilePanelToBuffer(childrenList[i].children, childrenList[i].id, panelClassName);
-        }
     }
 
     // =======================================================================
@@ -1200,10 +1116,10 @@
 
     // =======================================================================
 
-    function getProxyPropertyPanelState(anyInnerProxyWidget) {
+    function getProxyPropertyPanelState(anyInnerProxyWidget, onRepresentation) {
         var pipelineBrowser = getPipeline(anyInnerProxyWidget), state = {};
         state.proxy = getActiveProxyId(pipelineBrowser);
-        $('.property', pipelineBrowser).each(function(){
+        $('.property' + (onRepresentation?".on-representation":""), pipelineBrowser).each(function(){
             var property = $(this),
             values = [],
             value = 0,
@@ -1246,8 +1162,6 @@
                 state[property.attr('proxy')][property.attr('label')] = values;
             }
         });
-
-        console.log(state);
         return state;
     }
 
@@ -1269,24 +1183,25 @@
             return;
         }
 
+        function idle() {
+            fireBusy(pipelineBrowser, false);
+        }
+
         // Attach filter creation
         pipelineBrowser.bind('addSource', function(e) {
             var parentId = (e.parent_id ? e.parent_id : 0);
-            session.call('vtk:addSource', e.name, parentId).then(function(newNode) {
+            fireBusy(pipelineBrowser, true);
+            session.call('pv.pipeline.manager.proxy.add', [e.name, parentId]).then(function(newNode) {
+                fireBusy(pipelineBrowser, false);
                 addProxy(pipelineBrowser, parentId, newNode);
-            });
-        });
-
-        // Attach file loading
-        pipelineBrowser.bind('openFile', function(e) {
-            session.call('vtk:openFile', e.path).then(function(newFile) {
-                addProxy(pipelineBrowser, 0, newFile);
-            });
+            }, idle);
         });
 
         // Attach pipeline reload
         pipelineBrowser.bind('reloadPipeline', function(e) {
-            session.call('vtk:reloadPipeline').then(function(rootNode) {
+            fireBusy(pipelineBrowser, true);
+            session.call('pv.pipeline.manager.reload').then(function(rootNode) {
+                fireBusy(pipelineBrowser, false);
                 var pipelineLineAfter, pipelineLineBefore;
 
                 // Update data model part
@@ -1313,7 +1228,7 @@
 
                 // Update proxy editor
                 setActiveProxyId(pipelineBrowser, 0);
-            });
+            }, idle);
         });
 
         // Attach representation change
@@ -1331,7 +1246,7 @@
                     options['Visibility'] = 1;
                     options['Representation'] = changeSet.representation;
                 }
-                session.call('vtk:updateDisplayProperty', options);
+                session.call('pv.pipeline.manager.proxy.representation.update', [options]);
             } else if(e.origin === 'colorBy') {
                 if(changeSet.hasOwnProperty('color')) {
                     // Solid color
@@ -1348,31 +1263,43 @@
                 }
 
                 // Update server
-                session.call('vtk:updateDisplayProperty', options).then(function(){
-                    session.call('vtk:updateScalarbarVisibility').then(function(status){
+                fireBusy(pipelineBrowser, true);
+                session.call('pv.pipeline.manager.proxy.representation.update', [options]).then(function(){
+                    session.call('pv.pipeline.manager.scalarbar.visibility.update').then(function(status){
                         pipelineBrowser.data('scalarbars', status);
                         updateUIPipeline(pipelineBrowser);
                         updateScalarBarUI(pipelineBrowser, status);
-                    });
-                });
+                        fireBusy(pipelineBrowser, false);
+                    }, idle);
+                }, idle);
             } else if(e.origin === 'scalarbar') {
-                session.call('vtk:updateScalarbarVisibility', changeSet).then(function(status){
+                fireBusy(pipelineBrowser, true);
+                session.call('pv.pipeline.manager.scalarbar.visibility.update', [changeSet]).then(function(status){
+                    fireBusy(pipelineBrowser, false);
                     pipelineBrowser.data('scalarbars', status);
                     updateScalarBarUI(pipelineBrowser, status);
-                });
+                }, idle);
             } else if(e.origin === 'property') {
                 for(var key in changeSet) {
                     options[key] = changeSet[key];
                 }
-                session.call('vtk:pushState', options).then(function(newState){
+                fireBusy(pipelineBrowser, true);
+                session.call('pv.pipeline.manager.proxy.update', [options]).then(function(newState){
+                    fireBusy(pipelineBrowser, false);
                     updateProxy(pipelineBrowser, newState);
-                });
+                }, idle);
+            } else if(e.origin === 'representation-property') {
+                for(var key in changeSet) {
+                    options[key] = changeSet[key];
+                }
+                session.call('pv.pipeline.manager.proxy.representation.update', [options]);
             }
         });
 
         // Attach delete action
         pipelineBrowser.bind('deleteProxy', function(e) {
-            session.call('vtk:deleteSource', e.proxy_id).then(function(){
+            fireBusy(pipelineBrowser, true);
+            session.call('pv.pipeline.manager.proxy.delete', [e.proxy_id]).then(function(){
                 removeProxy(pipelineBrowser, e.proxy_id);
 
                 var fullLutStatus = pipelineBrowser.data('scalarbars'),
@@ -1389,22 +1316,39 @@
                         needToUpdateServer = true;
                     }
                 }
-
+                fireBusy(pipelineBrowser, false);
                 if(needToUpdateServer) {
-                    session.call('vtk:updateScalarbarVisibility', lutToDelete).then(function(status){
+                    fireBusy(pipelineBrowser, true);
+                    session.call('pv.pipeline.manager.scalarbar.visibility.update', [lutToDelete]).then(function(status){
                         updateScalarBarUI(pipelineBrowser, status);
-                    });
+                        fireBusy(pipelineBrowser, false);
+                    }, idle);
                 }
-            });
+            }, idle);
 
         });
 
         // Attach property editing
         pipelineBrowser.bind('apply', function() {
-            var proxyState = getProxyPropertyPanelState(pipelineBrowser);
-            session.call('vtk:pushState', proxyState).then(function(newState){
-                updateProxy(pipelineBrowser, newState);
-            });
+            var proxyState = getProxyPropertyPanelState(pipelineBrowser, false),
+            repState = getProxyPropertyPanelState(pipelineBrowser, true),
+            repState_OK = {};
+
+            // Convert representation props
+            repState_OK['proxy_id'] = repState['proxy'];
+            for(var key in repState[repState['proxy']]) {
+                repState_OK[key] = repState[repState['proxy']][key];
+            }
+            getProxy(pipelineBrowser, repState_OK['proxy_id']).opacity = repState_OK['Opacity'][0];
+
+            fireBusy(pipelineBrowser, true);
+            session.call('pv.pipeline.manager.proxy.update', [proxyState]).then(function(newState){
+                fireBusy(pipelineBrowser, false);
+                session.call('pv.pipeline.manager.proxy.representation.update', [repState_OK]).then(function(){
+                    newState.opacity = repState_OK['Opacity'][0];
+                    updateProxy(pipelineBrowser, newState);
+                });
+            }, idle);
         });
 
         pipelineBrowser.bind('reset', function() {
@@ -1660,6 +1604,7 @@
             if(getProxyId($('.proxy-control.selected', pipelineBrowser)) === getProxyId(me)) {
                 return;
             }
+
             $('.proxy-control', pipelineBrowser).removeClass('selected');
             me.addClass('selected');
 
@@ -1705,23 +1650,6 @@
             me.toggleClass('active');
         });
 
-        // ============= File browsing ===========
-
-        $(".open-file", pipelineBrowser).unbind().click(function() {
-            var me = $(this), pipeline = getPipeline(me), toggleButton = $('.files.active', pipeline);
-            pipeline.removeClass(PIPELINE_VIEW_TYPES).addClass('view-pipeline');
-
-            fireOpenFile(pipelineBrowser, me.attr('path'));
-            toggleButton.removeClass('active');
-        });
-
-        $(".menu-link", pipelineBrowser).unbind().click(function() {
-            var me = $(this), menuToShow = $("." + me.attr('link'), pipelineBrowser);
-            me.parent().hide('slide', 250, function(){
-                menuToShow.show('slide',250);
-            });
-        });
-
         // ============= Source/Filter browsing ===========
 
         $(".pipeline-sources .action", pipelineBrowser).unbind().click(function(){
@@ -1762,6 +1690,17 @@
 
         $('.head-icon.server',pipelineBrowser).unbind().click(function(){
             fireReloadPipeline($(this));
+        });
+
+        // ============= Representation properties ===========
+
+        $('.pipeline-editor-representation input[type="range"]').change(function(){
+            var me = $(this),
+            name = me.attr('name'),
+            value = Number(me.val()) / 100,
+            changeSet = {};
+            changeSet[name] = value;
+            fireProxyChange(me, 'representation-property', changeSet)
         });
     }
 
@@ -1826,17 +1765,33 @@
     // =======================================================================
 
     function updateProxyProperties(pipelineBrowser, proxy) {
-        var me = $(".pipeline-editor-content",pipelineBrowser).empty(), key, value;
+        var me = $(".pipeline-editor-content",pipelineBrowser).empty(), key, value,
+        opacityValue = proxy.opacity;
+        if(opacityValue === undefined) {
+            opacityValue = 1;
+        }
 
         buffer.clear();
         buffer.append("<table>");
 
         if(proxy && proxy.state) {
+            // Add Opacity property
+
+            addPropertyToBuffer(proxy.state['proxy_id'], 'Opacity', opacityValue, {
+                "default_values": "1",
+                "domains": [{ "max":"1", "type":"DoubleRange", "min":"0"} ],
+                "name": "Opacity",
+                "order": 100,
+                "size": "1",
+                "type": "Double"
+            }, true);
+
+            // Other properties
             for(key in proxy.state.properties) {
                 if(proxy.state.domains.hasOwnProperty(key)) {
-                    addPropertyToBuffer(proxy.state['proxy_id'], key, proxy.state.properties[key], proxy.state.domains[key]);
+                    addPropertyToBuffer(proxy.state['proxy_id'], key, proxy.state.properties[key], proxy.state.domains[key], false);
                 } else {
-                    addPropertyToBuffer(proxy.state['proxy_id'], key, proxy.state.properties[key], null);
+                    addPropertyToBuffer(proxy.state['proxy_id'], key, proxy.state.properties[key], null, false);
                 }
             }
         }
@@ -1849,6 +1804,7 @@
         });
 
         generateWidget(me);
+
         $('.apply', pipelineBrowser).removeClass('modified');
     }
 
@@ -1861,8 +1817,9 @@
 
     // =======================================================================
 
-    function addPropertyToBuffer(proxyId, key, value, domain) {
+    function addPropertyToBuffer(proxyId, key, value, domain, onRepresentation) {
         var idx, filterList = ['proxy_id', 'type', 'domains'], nbComponents;
+
         for(idx in filterList) {
             if(key === filterList[idx]) {
                 return;
@@ -1872,12 +1829,12 @@
             if(value.hasOwnProperty('proxy_id')) {
                 buffer.append("<tr class='sub-proxy'><table>");
                 for(var key2 in value.properties) {
-                    addPropertyToBuffer(value['proxy_id'], key2, value.properties[key2], value.domains[key2]);
+                    addPropertyToBuffer(value['proxy_id'], key2, value.properties[key2], value.domains[key2], onRepresentation);
                 }
                 buffer.append("</table></tr>");
             }
         } else {
-            buffer.append("<tr class='property' name='");
+            buffer.append("<tr class='property REP' name='".replace(/REP/g, onRepresentation ? "on-representation" : ""));
             buffer.append(key);
             buffer.append("' proxy='");
             buffer.append(proxyId);
@@ -1894,7 +1851,7 @@
             buffer.append("' widget-type='");
 
             if(domain['domains'].length == 1 && domain['domains'][0]['type'] == 'Boolean') {
-                buffer.append('boolean');
+                buffer.append("boolean'");
             } else if (domain['domains'].length == 1 && domainHasRange(domain['domains'][0]['type']) && domain['domains'][0].hasOwnProperty('min') && domain['domains'][0].hasOwnProperty('max')) {
                 buffer.append('range');
                 buffer.append("' min='");
@@ -1903,6 +1860,7 @@
                 buffer.append(domain['domains'][0]['max']);
                 buffer.append("' data-type='");
                 buffer.append(domain['type']);
+                buffer.append("'");
             } else if (isInputArrayDomain(domain['domains'])) {
                 // Handle input array
                 nbComponents = getInputArrayNumberOfComponents(domain['domains']);
@@ -1918,9 +1876,11 @@
             } else if (isEnumDomain(domain['domains'])) {
                 buffer.append("enum' key='");
                 buffer.append(key);
+                buffer.append("'");
             } else if (isProxyListDomain(domain['domains'])) {
                 buffer.append("list' key='");
                 buffer.append(key);
+                buffer.append("'");
             } else if (domain.hasOwnProperty('size')) {
                 if(domain['size'] === '0') {
                     buffer.append('multi-value');
@@ -1931,9 +1891,12 @@
                 buffer.append(domain['size']);
                 buffer.append("' data-type='");
                 buffer.append(domain['type']);
+                buffer.append("'");
+            } else {
+                buffer.append("?'");
             }
 
-            buffer.append("'></tr>");
+            buffer.append("></tr>");
         }
     }
 
@@ -1986,7 +1949,7 @@
 
     // =======================================================================
 
-    function createSlider(container, propertyName, min, max, type, propertyValue) {
+    function createSliderOLD(container, propertyName, min, max, type, propertyValue) {
         tmpBuffer = createBuffer();
         tmpBuffer.append("<td class='title'>");
         tmpBuffer.append(propertyName);
@@ -2012,6 +1975,57 @@
             options['step'] = 1;
         }
         $('div.pv-widget-slider', container).slider(options);
+    }
+
+    // =======================================================================
+
+    function createSlider(container, propertyName, min, max, type, propertyValue) {
+        var minValue = Number(min),
+        maxValue = Number(max),
+        deltaValue = maxValue - minValue;
+
+        function sliderValueToPropertyValue(v) {
+            var sv = deltaValue * Number(v) / 100.0 + minValue;
+            if(type === 'Int') {
+                return Math.floor(sv);
+            }
+            return sv;
+        }
+
+        function propertyValueToSliderValue(v) {
+            return 100 * (Number(v) - minValue) / deltaValue ;
+        }
+
+        container[0].innerHTML =
+            "<td class='title'>NAME</td><td class='pv-widget text-1'><input type='text' value='VALUE'><div class='pv-widget-slider'><input type='range' min='0' max='100' value='SLIDE' data-min='MIN' data-max='MAX' data-value='VALUE'/></div></td>"
+            .replace(/VALUE/g, propertyValue)
+            .replace(/NAME/g, propertyName)
+            .replace(/MIN/g, min)
+            .replace(/MAX/g, max)
+            .replace(/VALUE/g, propertyValue)
+            .replace(/SLIDE/g, propertyValueToSliderValue(propertyValue));
+
+        var textProperty = $('input[type="text"]', container),
+        sliderProperty = $('input[type="range"]', container);
+
+
+        function invalidateProperty(newValue) {
+            textProperty.val(newValue);
+            sliderProperty.attr('data-value', newValue).val(propertyValueToSliderValue(newValue));
+            markProxyModified(container);
+        }
+
+        $('input[type="text"]', container).change(function() {
+            var me = $(this),
+            value = me.val();
+            invalidateProperty(value);
+        });
+
+        $('input[type="range"]', container).bind('change keyup', function() {
+            var me = $(this),
+            value = sliderValueToPropertyValue(me.val());
+            invalidateProperty(value);
+        });
     }
 
     // =======================================================================
@@ -2217,6 +2231,20 @@
         for(idx in propertyValue) {
             $('input.multi-value', container).eq(idx).val(propertyValue[idx]);
         }
+    }
+
+    // ----------------------------------------------------------------------
+    // Local module registration
+    // ----------------------------------------------------------------------
+    try {
+      // Tests for presence of jQuery, then registers this module
+      if ($ !== undefined) {
+        vtkWeb.registerModule('paraview-ui-pipeline');
+      } else {
+        console.error('Module failed to register, jQuery is missing: ' + err.message);
+      }
+    } catch(err) {
+      console.error('Caught exception while registering module: ' + err.message);
     }
 
 }(window, jQuery));

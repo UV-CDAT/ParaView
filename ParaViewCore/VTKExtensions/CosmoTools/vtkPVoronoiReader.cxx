@@ -41,6 +41,11 @@ vtkPVoronoiReader::vtkPVoronoiReader()
   this->SetController(vtkMultiProcessController::GetGlobalController());
 }
 
+vtkPVoronoiReader::~vtkPVoronoiReader()
+{
+  this->SetController(NULL);
+}
+
 void vtkPVoronoiReader::SetController(vtkMultiProcessController *c)
 {
   if ((c == NULL) || (c->GetNumberOfProcesses() == 0))
@@ -91,7 +96,8 @@ int vtkPVoronoiReader::RequestData(
   vtkInformationVector **vtkNotUsed(inputVector),
   vtkInformationVector *outputVector)
 {
-  int i, j;
+//  int i, j;
+  int i = 0;
   // get the info object
   vtkInformation *outInfo = outputVector->GetInformationObject(0);
   int piece, numPieces;
@@ -190,12 +196,14 @@ void vtkPVoronoiReader::PrintSelf(ostream& os, vtkIndent indent)
 void vtkPVoronoiReader::ReadFooter(FILE*& fd, int64_t*& ftr, int& tb)
 {
   int ofst;
-  int count;
   int64_t temp;
 
   ofst = sizeof(int64_t);
   fseek(fd, -ofst, SEEK_END);
-  count = fread(&temp, sizeof(int64_t), 1, fd); // total number of blocks
+#ifndef NDEBUG
+  int count =
+#endif
+    fread(&temp, sizeof(int64_t), 1, fd); // total number of blocks
   assert(count == 1); // total number of blocks
 
   if (swap_bytes)
@@ -207,7 +215,10 @@ void vtkPVoronoiReader::ReadFooter(FILE*& fd, int64_t*& ftr, int& tb)
     ftr = new int64_t[tb];
     ofst = (tb + 1) * sizeof(int64_t);
     fseek(fd, -ofst, SEEK_END);
-    count = fread(ftr, sizeof(int64_t), tb, fd);
+#ifndef NDEBUG
+    count =
+#endif
+      fread(ftr, sizeof(int64_t), tb, fd);
     assert(count == tb);
 
     if (swap_bytes)
@@ -224,10 +235,11 @@ void vtkPVoronoiReader::ReadFooter(FILE*& fd, int64_t*& ftr, int& tb)
 //
 void vtkPVoronoiReader::ReadHeader(FILE *fd, int *hdr, int64_t ofst)
 {
-  int count;
-
   fseek(fd, ofst, SEEK_SET);
-  count = fread(hdr, sizeof(int), this->HeaderSize, fd);
+#ifndef NDEBUG
+  int count =
+#endif
+    fread(hdr, sizeof(int), this->HeaderSize, fd);
   assert(count == this->HeaderSize);
 
   if (swap_bytes)
@@ -523,16 +535,15 @@ void vtkPVoronoiReader::Swap2(char *n)
 
 void vtkPVoronoiReader::vor2ugrid(struct vblock_t *block, vtkSmartPointer<vtkUnstructuredGrid> &ugrid)
 {
-  int i, j, k;
-  int num_cells, num_verts, num_faces;
-  char msg[100];
+//  int i, j, k;
+  int j = 0;
+  int k = 0;
+  int num_cells, num_verts;
 
   num_cells = block->num_complete_cells;
   num_verts = block->num_verts;
-  num_faces = block->tot_num_cell_faces;
 
   float *vert_vals = block->save_verts;
-  vtkMultiProcessController *contr = this->Controller;
 
   //create points
   VTK_CREATE(vtkFloatArray, points_array);

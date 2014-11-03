@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>212</width>
-    <height>184</height>
+    <height>215</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -22,12 +22,6 @@
    </property>
    <item row="1" column="0">
     <widget class="pqExpandableTableView" name="Table">
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Expanding" vsizetype="MinimumExpanding">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
      <property name="dragDropMode">
       <enum>QAbstractItemView::InternalMove</enum>
      </property>
@@ -39,6 +33,9 @@
      </property>
      <property name="selectionBehavior">
       <enum>QAbstractItemView::SelectRows</enum>
+     </property>
+     <property name="maximumRowCountBeforeScrolling" stdset="0">
+      <number>10</number>
      </property>
     </widget>
    </item>
@@ -85,7 +82,7 @@
        </property>
        <property name="icon">
         <iconset resource="../pqComponents.qrc">
-         <normaloff>:/pqWidgets/Icons/pqFilter16.png</normaloff>:/pqWidgets/Icons/pqFilter16.png</iconset>
+         <normaloff>:/pqWidgets/Icons/pqRuler16.png</normaloff>:/pqWidgets/Icons/pqRuler16.png</iconset>
        </property>
       </widget>
      </item>

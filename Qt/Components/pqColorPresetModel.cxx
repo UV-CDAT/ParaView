@@ -41,7 +41,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <QPixmap>
 #include <QString>
 
-
 class pqColorPresetModelItem
 {
 public:
@@ -140,7 +139,7 @@ QModelIndex pqColorPresetModel::index(int row, int column,
   if(!parentIndex.isValid() && column >= 0 && column < 2 &&
       row >= 0 && row < this->Internal->Presets.size())
     {
-    return this->createIndex(row, column, 0);
+    return this->createIndex(row, column);
     }
 
   return QModelIndex();
@@ -154,7 +153,7 @@ QModelIndex pqColorPresetModel::parent(const QModelIndex &) const
 Qt::ItemFlags pqColorPresetModel::flags(const QModelIndex &idx) const
 {
   Qt::ItemFlags indexFlags = Qt::ItemIsEnabled | Qt::ItemIsSelectable;
-  if(idx.isValid() && idx.model() == this && idx.column() == 0 &&
+  if(idx.isValid() && idx.model() == this &&
       this->Internal->Presets[idx.row()]->Id != -1)
     {
     // The default presets are not editable.

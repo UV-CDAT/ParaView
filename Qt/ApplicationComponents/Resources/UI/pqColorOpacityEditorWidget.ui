@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>395</width>
-    <height>317</height>
+    <height>758</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -15,7 +15,7 @@
   </property>
   <layout class="QVBoxLayout" name="mainLayout">
    <property name="spacing">
-    <number>-1</number>
+    <number>6</number>
    </property>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="1,0">
@@ -167,7 +167,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QToolButton" name="Edit">
+        <widget class="QToolButton" name="AdvancedButton">
          <property name="toolTip">
           <string>Manually edit transfer functions</string>
          </property>
@@ -177,6 +177,9 @@
          <property name="icon">
           <iconset resource="../../../Components/Resources/pqComponents.qrc">
            <normaloff>:/pqWidgets/Icons/pqAdvanced26.png</normaloff>:/pqWidgets/Icons/pqAdvanced26.png</iconset>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
@@ -231,13 +234,70 @@
       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When checked, the transfer function will be rescaled using updated data ranges on Apply&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
      <property name="text">
-      <string>Automatically rescale transfer functions to fit data</string>
+      <string>Automatically rescale color map range to fit data</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="ColorLabel">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="text">
+      <string>Color transfer function values</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="pqExpandableTableView" name="ColorTable">
+     <property name="editTriggers">
+      <set>QAbstractItemView::DoubleClicked</set>
+     </property>
+     <property name="alternatingRowColors">
+      <bool>true</bool>
+     </property>
+     <property name="selectionBehavior">
+      <enum>QAbstractItemView::SelectRows</enum>
+     </property>
+     <property name="maximumRowCountBeforeScrolling" stdset="0">
+      <number>10</number>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="OpacityLabel">
+     <property name="text">
+      <string>Opacity transfer function values</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="pqExpandableTableView" name="OpacityTable">
+     <property name="editTriggers">
+      <set>QAbstractItemView::DoubleClicked</set>
+     </property>
+     <property name="alternatingRowColors">
+      <bool>true</bool>
+     </property>
+     <property name="selectionBehavior">
+      <enum>QAbstractItemView::SelectRows</enum>
+     </property>
+     <property name="maximumRowCountBeforeScrolling" stdset="0">
+      <number>10</number>
      </property>
     </widget>
    </item>
   </layout>
  </widget>
  <customwidgets>
+  <customwidget>
+   <class>pqExpandableTableView</class>
+   <extends>QTableView</extends>
+   <header>pqExpandableTableView.h</header>
+  </customwidget>
   <customwidget>
    <class>pqTransferFunctionWidget</class>
    <extends>QWidget</extends>

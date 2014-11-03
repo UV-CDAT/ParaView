@@ -20,6 +20,7 @@
 #include "vtkMultiProcessStream.h"
 #include "vtkObjectFactory.h"
 #include "vtkProcessModule.h"
+#include "vtkPVAxesWidget.h"
 #include "vtkPVServerInformation.h"
 #include "vtkPVSession.h"
 #include "vtkRendererCollection.h"
@@ -98,7 +99,12 @@ public:
     VectorOfRenderers::iterator iter;
     for (iter = renderers.begin(); iter != renderers.end(); ++iter)
       {
-      (*iter)->SetViewport(viewport);
+      // HACK: This allows us to skip changing the viewport for orientation
+      // widget for now.
+      if ((*iter)->GetLayer() != vtkPVAxesWidget::RendererLayer)
+        {
+        (*iter)->SetViewport(viewport);
+        }
       }
     }
 
@@ -391,6 +397,42 @@ vtkPVSynchronizedRenderWindows::vtkPVSynchronizedRenderWindows(
   default:
     vtkErrorMacro("Invalid process type.");
     abort();
+    }
+
+  if (this->ClientDataServerController != NULL)
+    {
+    // ClientDataServerController is non-null on pvdataserver and client in
+    // data-server/render-server mode.
+
+    // synchronize tile-display parameters viz. tile-dimensions between
+    // data-server and render-server.
+    if (this->Mode == CLIENT)
+      {
+      int tile_dims[2], tile_mullions[2];
+      bool tile_display_mode =
+        this->GetTileDisplayParameters(tile_dims, tile_mullions);
+      vtkMultiProcessStream stream;
+      stream << (tile_display_mode? 1 : 0)
+             << tile_dims[0] << tile_dims[1]
+             << tile_mullions[0] << tile_mullions[1];
+      this->ClientDataServerController->Send(stream, 1,
+        SYNC_TILE_DISPLAY_PARAMATERS);
+      }
+    else if (this->Mode == DATA_SERVER)
+      {
+      vtkMultiProcessStream stream;
+      this->ClientDataServerController->Receive(stream, 1,
+        SYNC_TILE_DISPLAY_PARAMATERS);
+      int tile_dims[2], tile_mullions[2], tile_display_mode;
+      stream >> tile_display_mode
+             >> tile_dims[0] >> tile_dims[1]
+             >> tile_mullions[0] >> tile_mullions[1];
+      if (tile_display_mode == 1)
+        {
+        this->Session->GetServerInformation()->SetTileDimensions(tile_dims);
+        this->Session->GetServerInformation()->SetTileMullions(tile_mullions);
+        }
+      }
     }
 }
 

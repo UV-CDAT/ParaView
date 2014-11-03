@@ -1123,10 +1123,17 @@ int vtkClientServerStream::GetArgument(int message, int argument,
   return 0;
 }
 
+//----------------------------------------------------------------------------
 int vtkClientServerStream::GetArgument(int message, int argument, vtkStdString* value) const
 {
-  char* tmp;
-  if (this->GetArgument(message, argument, &tmp))
+  return this->GetArgument(message, argument, static_cast<std::string*>(value));
+}
+
+//----------------------------------------------------------------------------
+int vtkClientServerStream::GetArgument(int message, int argument, std::string *value) const
+{
+  char* tmp = NULL;
+  if (this->GetArgument(message, argument, &tmp) && tmp)
     {
     *value = tmp;
     return 1;

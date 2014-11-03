@@ -59,16 +59,6 @@ public:
   /// Returns the context view proxy associated with this object.
   virtual vtkSMContextViewProxy* getContextViewProxy() const;
 
-  /// Save a screenshot for the render module. If width or height ==0,
-  /// the current window size is used.
-  virtual bool saveImage(int width, int height, const QString& filename);
-
-  /// Capture the view image into a new vtkImageData with the given magnification
-  /// and returns it. The caller is responsible for freeing the returned image.
-  virtual vtkImageData* captureImage(int magnification);
-  virtual vtkImageData* captureImage(const QSize& asize)
-    { return this->Superclass::captureImage(asize); }
-
   /// Returns true if selection can be done.
   virtual bool supportsSelection() const;
 
@@ -80,9 +70,6 @@ public:
 
   /// Resets the zoom level to 100%.
   virtual void resetDisplay();
-
-  /// Returns true if data on the given output port can be displayed by this view.
-  virtual bool canDisplay(pqOutputPort* opPort) const;
 
 protected slots:
   virtual void initializeAfterObjectsCreated();

@@ -10,6 +10,7 @@ vtk_module(vtkPVClientServerCoreRendering
     vtkDomainsChemistry
     vtkFiltersAMR
     vtkPVClientServerCoreCore
+    vtkPVVTKExtensionsDefault
     vtkPVVTKExtensionsRendering
     vtkWebGLExporter
     vtkRenderingLabel
@@ -20,6 +21,9 @@ vtk_module(vtkPVClientServerCoreRendering
     ${__dependencies}
   PRIVATE_DEPENDS
     vtksys
+    vtkzlib
   TEST_LABELS
     PARAVIEW
+  KIT
+    vtkPVClientServer
 )

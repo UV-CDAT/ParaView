@@ -37,10 +37,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <QApplication>
 #include <QDrag>
 #include <QHBoxLayout>
+#include <QLabel>
 #include <QMenu>
+#include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QStyle>
+#include <QToolBar>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -52,6 +55,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #define PEN_WIDTH 2
+const int ICON_SIZE = 12;
 
 //-----------------------------------------------------------------------------
 pqViewFrame::pqViewFrame(QWidget* parentObject)
@@ -62,9 +66,16 @@ pqViewFrame::pqViewFrame(QWidget* parentObject)
   BorderColor(QColor("blue")),
   Buttons(SplitVertical | SplitHorizontal | Maximize | Close),
   TitleBar(new QWidget(this)),
+  ToolBar (new QToolBar(this)),
+  TitleLabel(new QLabel(this)),
   ContextMenu(new QMenu(this->TitleBar)),
   UniqueID(QUuid::createUuid())
 {
+  this->ToolBar->setIconSize(QSize (ICON_SIZE, ICON_SIZE));
+  QLayout* tbLayout = this->ToolBar->layout ();
+  tbLayout->setSpacing (0);
+  tbLayout->setContentsMargins (0, 0, 0, 0);
+
   // to allow an empty frame to work with the focus stuff
   this->setFocusPolicy(Qt::ClickFocus);
 
@@ -78,8 +89,7 @@ pqViewFrame::pqViewFrame(QWidget* parentObject)
     this->TitleBar, SIGNAL(customContextMenuRequested(const QPoint&)),
     this, SLOT(contextMenuRequested(const QPoint&)));
 
-  // limits the titlebar's height.
-  this->TitleBar->setMaximumSize(16777215, 18);
+// limits the titlebar's height.
   this->TitleBar->installEventFilter(this);
 
   // Create standard buttons.
@@ -136,6 +146,18 @@ QWidget* pqViewFrame::centralWidget() const
 }
 
 //-----------------------------------------------------------------------------
+void pqViewFrame::setTitle(const QString& text)
+{
+  this->TitleLabel->setText(text);
+}
+
+//-----------------------------------------------------------------------------
+QString pqViewFrame::title() const
+{
+  return this->TitleLabel->text();
+}
+
+//-----------------------------------------------------------------------------
 void pqViewFrame::updateLayout()
 {
   QVBoxLayout* vbox = new QVBoxLayout();
@@ -167,6 +189,9 @@ void pqViewFrame::updateLayout()
 
   delete this->layout();
   this->setLayout(vbox);
+
+  // ensure that the frame is repainted.
+  this->update();
 }
 
 //-----------------------------------------------------------------------------
@@ -175,11 +200,13 @@ void pqViewFrame::updateTitleBar()
   QHBoxLayout* hbox = new QHBoxLayout(); 
   hbox->setMargin(0);
   hbox->setSpacing(0);
-  foreach (QToolButton* toolButton, this->ToolButtons)
-    {
-    hbox->addWidget(toolButton);
-    }
+  hbox->addWidget (this->ToolBar);
   hbox->addStretch();
+
+  this->TitleLabel->setAlignment(Qt::AlignRight);
+  this->TitleLabel->setIndent(10);
+  hbox->addWidget(this->TitleLabel);
+
   foreach (QToolButton* button, this->StandardToolButtons)
     {
     button->hide();
@@ -267,6 +294,7 @@ QToolButton* pqViewFrame::createButton(QAction* action)
   toolButton->setDefaultAction(action);
   toolButton->setObjectName(action->objectName());
   toolButton->setIcon(action->icon());
+  toolButton->setIconSize(QSize (ICON_SIZE, ICON_SIZE));
 
   QObject::connect(toolButton, SIGNAL(triggered(QAction*)),
     this, SLOT(buttonClicked()), Qt::QueuedConnection);
@@ -279,11 +307,6 @@ void pqViewFrame::buttonClicked()
   QToolButton* toolButton = qobject_cast<QToolButton*>(this->sender());
   if (toolButton)
     {
-    if (this->ToolButtons.contains(toolButton))
-      {
-      emit this->actionTriggered(toolButton->defaultAction());
-      }
-
     StandardButton key = this->StandardToolButtons.key(toolButton, NoButton);
     if (key != NoButton)
       {
@@ -295,7 +318,7 @@ void pqViewFrame::buttonClicked()
 //-----------------------------------------------------------------------------
 void pqViewFrame::addTitleBarAction(QAction* action)
 {
-  this->ToolButtons.push_front(this->createButton(action));
+  this->ToolBar->addAction (action);
   this->updateTitleBar();
 }
 
@@ -320,11 +343,7 @@ QAction* pqViewFrame::addTitleBarAction(const QIcon& icon, const QString& titles
 //-----------------------------------------------------------------------------
 void pqViewFrame::removeTitleBarActions()
 {
-  foreach (QToolButton* button, this->ToolButtons)
-    {
-    delete button;
-    }
-  this->ToolButtons.clear();
+  this->ToolBar->clear();
 }
 
 //-----------------------------------------------------------------------------

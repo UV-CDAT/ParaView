@@ -50,6 +50,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "vtkSMProperty.h"
 #include "vtkSMPropertyHelper.h"
 #include "vtkSMProxy.h"
+#include "vtkSMPVRepresentationProxy.h"
 #include "vtkSMTransferFunctionProxy.h"
 #include "vtkTuple.h"
 #include "vtkVariant.h"
@@ -190,7 +191,7 @@ public:
           }
         }
       }
-    else if (role == Qt::DisplayRole)
+    else if (role == Qt::DisplayRole || role == Qt::EditRole)
       {
       switch (idx.column())
         {
@@ -259,30 +260,77 @@ public:
     return this->index(row, 0);
     }
 
-  // Remove the given annotation index. Returns item before or after the removed
-  // item, if any.
-  QModelIndex removeAnnotation(const QModelIndex& toRemove=QModelIndex())
+  // Given a list of modelindexes, return a vector containing multiple sorted
+  // vectors of rows, split by their discontinuity
+  void splitSelectedIndexesToRowRanges(
+    const QModelIndexList& indexList,
+    QVector<QVector<QVariant> > &result)
     {
-    if (!toRemove.isValid())
+    if (indexList.empty())
       {
-      return QModelIndex();
+      return;
+      }
+    result.clear();
+    QVector <int> rows;
+    QModelIndexList::const_iterator iter = indexList.begin();
+    for ( ; iter != indexList.end(); ++iter)
+      {
+      if ((*iter).isValid())
+        {
+        rows.push_back((*iter).row());
+        }
+      }
+    qSort(rows.begin(), rows.end());
+    result.resize(1);
+    result[0].push_back(rows[0]);
+    for (int i = 1; i < rows.size(); ++i)
+      {
+      if (rows[i] == rows[i-1])
+        {
+        // avoid duplicate
+        continue;
+        }
+      if (rows[i] != rows[i-1] + 1)
+        {
+        result.push_back(QVector<QVariant>());
+        }
+      result.back().push_back(QVariant(rows[i]));
+      }
+    }
+
+  // Remove the given annotation indexes. Returns item before or after the removed
+  // item, if any.
+  QModelIndex removeAnnotations(const QModelIndexList& toRemove=QModelIndexList())
+    {
+    QVector< QVector<QVariant> > rowRanges;
+    this->splitSelectedIndexesToRowRanges(toRemove, rowRanges);
+    int numGroups = static_cast<int>(rowRanges.size());
+    for (int g = numGroups-1; g > -1; --g)
+      {
+      int numRows = rowRanges.at(g).size();
+      int beginRow = rowRanges.at(g).at(0).toInt();
+      int endRow = rowRanges.at(g).at(numRows-1).toInt();
+      emit this->beginRemoveRows(QModelIndex(), beginRow, endRow);
+      for (int r = endRow; r >= beginRow; --r)
+        {
+        this->Annotations.remove(r);
+        }
+      emit this->endRemoveRows();
       }
 
-    int row = toRemove.row();
-    emit this->beginRemoveRows(QModelIndex(), row, row);
-    this->Annotations.remove(row);
-    emit this->endRemoveRows();
+    int firstRow = rowRanges.at(0).at(0).toInt();
+    int rowsCount = this->rowCount();
+    if (firstRow < rowsCount)
+      {
+      // since firstRow is still a valid row.
+      return this->index(firstRow, toRemove.at(0).column());
+      }
+    else if (rowsCount > 0 && (firstRow > (rowsCount-1)))
+      {
+      // just return the index for last row.
+      return this->index(rowsCount-1, toRemove.at(0).column());
+      }
 
-    if (row < this->rowCount())
-      {
-      // since toRemove is still a valid row.
-      return toRemove;
-      }
-    row -= 1;
-    if (row >=0 && row < this->rowCount())
-      {
-      return this->index(row, 1);
-      }
     return QModelIndex();
     }
 
@@ -372,7 +420,11 @@ public:
 
     this->Ui.AnnotationsTable->setModel(&this->Model);
     this->Ui.AnnotationsTable->horizontalHeader()->setHighlightSections(false);
+#if QT_VERSION >= 0x050000
+    this->Ui.AnnotationsTable->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+#else
     this->Ui.AnnotationsTable->horizontalHeader()->setResizeMode(QHeaderView::ResizeToContents);
+#endif
     this->Ui.AnnotationsTable->horizontalHeader()->setStretchLastSection(true);
 
     this->Decorator = new pqColorAnnotationsPropertyWidgetDecorator(NULL, self);
@@ -560,7 +612,7 @@ void pqColorAnnotationsPropertyWidget::addAnnotation()
 //-----------------------------------------------------------------------------
 void pqColorAnnotationsPropertyWidget::editPastLastRow()
 {
-  QModelIndex idx = this->Internals->Model.addAnnotation(
+  this->Internals->Model.addAnnotation(
     this->Internals->Ui.AnnotationsTable->currentIndex());
   emit this->annotationsChanged();
 }
@@ -568,8 +620,14 @@ void pqColorAnnotationsPropertyWidget::editPastLastRow()
 //-----------------------------------------------------------------------------
 void pqColorAnnotationsPropertyWidget::removeAnnotation()
 {
-  QModelIndex idx = this->Internals->Model.removeAnnotation(
-    this->Internals->Ui.AnnotationsTable->currentIndex());
+  QModelIndexList indexes =
+    this->Internals->Ui.AnnotationsTable->selectionModel()->selectedIndexes();
+  if( indexes.size() == 0 )
+    {
+    // Nothing selected. Nothing to remove
+    return;
+    }
+  QModelIndex idx = this->Internals->Model.removeAnnotations(indexes);
   this->Internals->Ui.AnnotationsTable->setCurrentIndex(idx);
   emit this->annotationsChanged();
 }
@@ -588,7 +646,8 @@ void pqColorAnnotationsPropertyWidget::addActiveAnnotations()
       }
 
     vtkPVProminentValuesInformation* info =
-      repr->getProxyColorProminentValuesInfo();
+      vtkSMPVRepresentationProxy::GetProminentValuesInformationForColorArray(
+        repr->getProxy());
     if (!info)
       {
       throw 0;

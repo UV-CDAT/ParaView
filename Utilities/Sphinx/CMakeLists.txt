@@ -32,7 +32,7 @@ configure_file(config/conf.py.in config/conf.py @ONLY)
 # since this CMakeLists.txt file is added at the end of the top-level
 # CMakeLists.txt file, that indeed is true.
 add_custom_target(ParaViewPythonDoc
-  COMMAND ${PYTHON_EXECUTABLE}
+  COMMAND $<TARGET_FILE:pvpython>
           "${CMAKE_CURRENT_SOURCE_DIR}/sphinx_apidoc.py"
           -o "${CMAKE_CURRENT_BINARY_DIR}/config"
           "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/site-packages/paraview"
@@ -42,7 +42,7 @@ add_custom_target(ParaViewPythonDoc
   SOURCES sphinx_apidoc.py
           config/index.rst
           config/quick-start.rst
+          config/api-changes.rst
           config/conf.py.in)
 
-add_dependencies(ParaViewPythonDoc ParaViewWWW)
 add_dependencies(ParaViewDoc ParaViewPythonDoc)

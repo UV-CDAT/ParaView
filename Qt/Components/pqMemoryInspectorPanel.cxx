@@ -39,24 +39,29 @@ using Ui::pqMemoryInspectorPanelForm;
 #include "vtkPVInformation.h"
 #include "vtkClientServerStream.h"
 
-#include <QTreeWidgetItem>
-#include <QTreeWidgetItemIterator>
-#include <QString>
-#include <QStringList>
-#include <QSettings>
-#include <QMessageBox>
-#include <QProgressBar>
-#include <QFrame>
-#include <QLabel>
-#include <QPalette>
+#include <QDebug>
 #include <QFont>
 #include <QFontMetrics>
-#include <QPlastiqueStyle>
-#include <QPoint>
-#include <QMenu>
-#include <QProcess>
-#include <QDebug>
 #include <QFormLayout>
+#include <QFrame>
+#include <QLabel>
+#include <QMenu>
+#include <QMessageBox>
+#include <QPalette>
+#include <QPoint>
+#include <QProcess>
+#include <QProgressBar>
+#include <QProxyStyle>
+#include <QSettings>
+#include <QString>
+#include <QStringList>
+#include <QStyleFactory>
+#include <QTreeWidgetItem>
+#include <QTreeWidgetItemIterator>
+
+#if QT_VERSION < 0x050000
+#include <QPlastiqueStyle>
+#endif
 
 #include <map>
 using std::map;
@@ -108,7 +113,6 @@ enum {
   ITEM_KEY_HOST_OS,            // descriptive string
   ITEM_KEY_HOST_CPU,           // descriptive string
   ITEM_KEY_HOST_MEM,           // descriptive string
-  ITEM_KEY_FQDN,               // string, network address
   ITEM_KEY_SYSTEM_TYPE         // int (0 unix like, 1 win)
 };
 
@@ -126,6 +130,19 @@ enum {
 
 namespace
 {
+#if QT_VERSION >= 0x050000
+// ****************************************************************************
+QStyle *getMemoryUseWidgetStyle()
+{
+  // this sets the style for the progress bar used to
+  // display % memory usage. If we didn't do this the
+  // display will look different on each OS. The ownership
+  // of the style does not change hands when it's set to
+  // the widget thus a single static instance is convenient.
+  static QStyle* style = QStyleFactory::create("fusion");
+  return style;
+}
+#else
 // ****************************************************************************
 QPlastiqueStyle *getMemoryUseWidgetStyle()
 {
@@ -137,7 +154,7 @@ QPlastiqueStyle *getMemoryUseWidgetStyle()
   static QPlastiqueStyle style;
   return &style;
 }
-
+#endif
 // ****************************************************************************
 float getSystemWarningThreshold()
 {
@@ -1054,7 +1071,6 @@ void pqMemoryInspectorPanel::InitializeServerGroup(
     string cpu=configs->GetCPUDescriptor(i);
     string mem=configs->GetMemoryDescriptor(i);
     string hostName=configs->GetHostName(i);
-    string fqdn=configs->GetFullyQualifiedDomainName(i);
     systemType=configs->GetSystemType(i);
     int rank=configs->GetRank(i);
     long long hostMemoryTotal=configs->GetHostMemoryTotal(i);
@@ -1067,7 +1083,7 @@ void pqMemoryInspectorPanel::InitializeServerGroup(
 
     #ifdef MIP_PROCESS_TABLE
     cerr
-      << setw(32) << fqdn
+      << setw(32) << hostName
       << setw(16) << pid
       << setw(8)  << rank << endl
       << setw(1);
@@ -1091,10 +1107,10 @@ void pqMemoryInspectorPanel::InitializeServerGroup(
       serverHostItem->setData(0,ITEM_KEY_PROCESS_TYPE,QVariant(ITEM_DATA_SERVER_HOST));
       serverHostItem->setData(0,ITEM_KEY_PVSERVER_TYPE,QVariant(processType));
       serverHostItem->setData(0,ITEM_KEY_SYSTEM_TYPE,QVariant(systemType));
+      serverHostItem->setData(0,ITEM_KEY_HOST_NAME,QVariant(hostName.c_str()));
       serverHostItem->setData(0,ITEM_KEY_HOST_OS,QString(os.c_str()));
       serverHostItem->setData(0,ITEM_KEY_HOST_CPU,QString(cpu.c_str()));
       serverHostItem->setData(0,ITEM_KEY_HOST_MEM,QString(mem.c_str()));
-      serverHostItem->setData(0,ITEM_KEY_FQDN,QString(fqdn.c_str()));
       this->Ui->configView->setItemWidget(serverHostItem,0,serverHost->GetMemoryUseWidget());
 
       serverHost->SetTreeItem(serverHostItem);
@@ -1115,7 +1131,6 @@ void pqMemoryInspectorPanel::InitializeServerGroup(
     serverRankItem->setData(0,ITEM_KEY_HOST_NAME,QVariant(hostName.c_str()));
     serverRankItem->setData(0,ITEM_KEY_PID,QVariant(pid));
     serverRankItem->setData(0,ITEM_KEY_SYSTEM_TYPE,QVariant(systemType));
-    serverRankItem->setData(0,ITEM_KEY_FQDN,QString(fqdn.c_str()));
     this->Ui->configView->setItemWidget(serverRankItem,0,serverRank->GetMemoryUseWidget());
     }
 
@@ -1174,7 +1189,7 @@ int pqMemoryInspectorPanel::Initialize()
 
   configs=vtkPVSystemConfigInformation::New();
   session=server->session();
-  session->GatherInformation(vtkSMSession::CLIENT,configs,0);
+  session->GatherInformation(vtkPVSession::CLIENT,configs,0);
 
   size_t nConfigs=configs->GetSize();
   if (nConfigs!=1)
@@ -1209,7 +1224,6 @@ int pqMemoryInspectorPanel::Initialize()
   clientHostItem->setData(0,ITEM_KEY_HOST_CPU,QString(configs->GetCPUDescriptor(0)));
   clientHostItem->setData(0,ITEM_KEY_HOST_MEM,QString(configs->GetMemoryDescriptor(0)));
   clientHostItem->setData(0,ITEM_KEY_HOST_NAME,QVariant(configs->GetHostName(0)));
-  clientHostItem->setData(0,ITEM_KEY_FQDN,QString(configs->GetFullyQualifiedDomainName(0)));
   clientHostItem->setData(0,ITEM_KEY_PID,QVariant(configs->GetPid(0)));
   this->Ui->configView->setItemWidget(clientHostItem,0,this->ClientHost->GetMemoryUseWidget());
 
@@ -1263,7 +1277,7 @@ int pqMemoryInspectorPanel::Initialize()
       << right << setw(1)  << setfill(' ');
     #endif
     QTreeWidgetItem *group=NULL;
-    group = new QTreeWidgetItem;
+    group = new QTreeWidgetItem(this->Ui->configView);
     group->setChildIndicatorPolicy(QTreeWidgetItem::DontShowIndicatorWhenChildless);
     group->setExpanded(true);
     group->setData(0,ITEM_KEY_PROCESS_TYPE,QVariant(ITEM_DATA_SERVER_GROUP));
@@ -1288,7 +1302,7 @@ int pqMemoryInspectorPanel::Initialize()
       << left << setw(56) << setfill('=') << "data server" << endl
       << right << setw(1)  << setfill(' ');
     #endif
-    group = new QTreeWidgetItem;
+    group = new QTreeWidgetItem(this->Ui->configView);
     group->setChildIndicatorPolicy(QTreeWidgetItem::DontShowIndicatorWhenChildless);
     group->setExpanded(true);
     group->setData(0,ITEM_KEY_PROCESS_TYPE,QVariant(ITEM_DATA_SERVER_GROUP));
@@ -1313,7 +1327,7 @@ int pqMemoryInspectorPanel::Initialize()
       << left << setw(56) << setfill('=') << "render server" << endl
       << right << setw(1)  << setfill(' ');
     #endif
-    group = new QTreeWidgetItem;
+    group = new QTreeWidgetItem(this->Ui->configView);
     group->setChildIndicatorPolicy(QTreeWidgetItem::DontShowIndicatorWhenChildless);
     group->setExpanded(true);
     group->setData(0,ITEM_KEY_PROCESS_TYPE,QVariant(ITEM_DATA_SERVER_GROUP));
@@ -1438,7 +1452,7 @@ void pqMemoryInspectorPanel::UpdateRanks()
   // client
   infos=vtkPVMemoryUseInformation::New();
   session=server->session();
-  session->GatherInformation(vtkSMSession::CLIENT,infos,0);
+  session->GatherInformation(vtkPVSession::CLIENT,infos,0);
 
   nInfos=infos->GetSize();
   if (nInfos==0)
@@ -1642,9 +1656,8 @@ void pqMemoryInspectorPanel::ExecuteRemoteCommand()
       case ITEM_DATA_CLIENT_RANK:
       case ITEM_DATA_SERVER_RANK:
         {
-        string host((const char *)item->data(0,ITEM_KEY_HOST_NAME).toString().toAscii());
-        string fqdn((const char *)item->data(0,ITEM_KEY_FQDN).toString().toAscii());
-        string pid((const char *)item->data(0,ITEM_KEY_PID).toString().toAscii());
+        string host((const char *)item->data(0,ITEM_KEY_HOST_NAME).toString().toLatin1());
+        string pid((const char *)item->data(0,ITEM_KEY_PID).toString().toLatin1());
 
         int serverSystemType=item->data(0,ITEM_KEY_SYSTEM_TYPE).toInt();
 
@@ -1657,7 +1670,7 @@ void pqMemoryInspectorPanel::ExecuteRemoteCommand()
         // select and configure a command
         pqRemoteCommandDialog dialog(this,0,this->ClientSystemType,serverSystemType);
 
-        dialog.SetActiveHost(fqdn);
+        dialog.SetActiveHost(host);
         dialog.SetActivePid(pid);
 
         if (dialog.exec()==QDialog::Accepted)
@@ -1807,19 +1820,17 @@ void pqMemoryInspectorPanel::ShowHostPropertiesDialog()
   if ( (type==ITEM_DATA_CLIENT_HOST)
     || (type==ITEM_DATA_SERVER_HOST) )
     {
-    QString host=item->text(0);
-
+    QString host=item->data(0,ITEM_KEY_HOST_NAME).toString();
     QString os=item->data(0,ITEM_KEY_HOST_OS).toString();
     QString cpu=item->data(0,ITEM_KEY_HOST_CPU).toString();
     QString mem=item->data(0,ITEM_KEY_HOST_MEM).toString();
-    QString fqdn=item->data(0,ITEM_KEY_FQDN).toString();
 
     QString descr;
     descr+="<h2>";
     descr+=(type==ITEM_DATA_CLIENT_HOST?"Client":"Server");
     descr+=" System Properties</h2><hr><table>";
     descr+="<tr><td><b>Host:</b></td><td>";
-    descr+=fqdn;
+    descr+=host;
     descr+="</td></tr>";
     descr+="<tr><td><b>OS:</b></td><td>";
     descr+=os;

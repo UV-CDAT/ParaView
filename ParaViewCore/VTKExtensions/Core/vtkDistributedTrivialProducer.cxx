@@ -19,7 +19,6 @@
 #include "vtkInformation.h"
 #include "vtkInformationVector.h"
 #include "vtkObjectFactory.h"
-#include "vtkPVTrivialExtentTranslator.h"
 #include "vtkSmartPointer.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
 
@@ -83,7 +82,6 @@ void vtkDistributedTrivialProducer::SetGlobalOutput(const char* key, vtkDataObje
     {
     vtkDistributedTrivialProducer::InternalStatic->RegisteredDataObjectMap[key] = output;
     cout << "Set Global Dataset for " << key << endl;
-    output->PrintSelf(cout, vtkIndent(5));
     }
 }
 
@@ -106,7 +104,7 @@ void vtkDistributedTrivialProducer::UpdateFromGlobal(const char* key)
   cout << "Update DS with key " << key << endl;
   if(vtkDistributedTrivialProducer::InternalStatic->GetDataObject(key))
     {
-    vtkDistributedTrivialProducer::InternalStatic->GetDataObject(key)->PrintSelf(cout, vtkIndent(5));
+    //vtkDistributedTrivialProducer::InternalStatic->GetDataObject(key)->PrintSelf(cout, vtkIndent(5));
     }
   else
     {

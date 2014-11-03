@@ -25,6 +25,7 @@
 #include "vtkSmartPointer.h" // for smart pointer.
 #include "vtkWeakPointer.h" // for weak pointer.
 #include "vtkBoundingBox.h" // needed for vtkBoundingBox.
+#include <vector> // needed for std::vector
 
 class vtkCompositePolyDataMapper2;
 class vtkMultiBlockDataSet;
@@ -40,6 +41,29 @@ public:
   void PrintSelf(ostream& os, vtkIndent indent);
 
   // Description:
+  // Set the input data arrays that this algorithm will process. Overridden to
+  // pass the array selection to the mapper.
+  virtual void SetInputArrayToProcess(int idx, int port, int connection,
+    int fieldAssociation, const char *name);
+  virtual void SetInputArrayToProcess(int idx, int port, int connection,
+    int fieldAssociation, int fieldAttributeType)
+    {
+    this->Superclass::SetInputArrayToProcess(
+      idx, port, connection, fieldAssociation, fieldAttributeType);
+    }
+  virtual void SetInputArrayToProcess(int idx, vtkInformation *info)
+    {
+    this->Superclass::SetInputArrayToProcess(idx, info);
+    }
+  virtual void SetInputArrayToProcess(int idx, int port, int connection,
+                              const char* fieldAssociation,
+                              const char* attributeTypeorName)
+    {
+    this->Superclass::SetInputArrayToProcess(idx, port, connection,
+      fieldAssociation, attributeTypeorName);
+    }
+
+  // Description:
   // Overridden to handle various view passes.
   virtual int ProcessViewRequest(vtkInformationRequestKey* request_type,
     vtkInformation* inInfo, vtkInformation* outInfo);
@@ -50,15 +74,23 @@ public:
   virtual void SetVisibility(bool val);
 
   // Description:
+  // Set the number of blocks to request at a given time on a single process
+  // when streaming.
+  vtkSetClampMacro(StreamingRequestSize, int, 1, 10000);
+  vtkGetMacro(StreamingRequestSize, int);
+
+  // Description:
   // Helps with debugging.
   vtkSetMacro(UseOutline, bool);
+
+  // Description:
+  // Set the opacity.
+  void SetOpacity(double val);
 
   //---------------------------------------------------------------------------
   // The following API is to simply provide the functionality similar to
   // vtkGeometryRepresentation.
   //---------------------------------------------------------------------------
-  void SetColorAttributeType(int type);
-  void SetColorArrayName(const char* arrayname);
   void SetLookupTable(vtkScalarsToColors*);
   void SetPointSize(double val);
     
@@ -66,6 +98,7 @@ public:
 protected:
   vtkStreamingParticlesRepresentation();
   ~vtkStreamingParticlesRepresentation();
+
 
   // Description:
   // Adds the representation to the view.  This is called from
@@ -124,6 +157,11 @@ protected:
   // and then call Update() on the representation, making it reexecute and
   // regenerate the outline for the next "piece" of data.
   bool StreamingUpdate(const double view_planes[24]);
+  
+  // Description:
+  // Called in StreamingUpdate() to determine the blocks to stream in the
+  // current pass. Returns false if no blocks need to be streaming currently.
+  bool DetermineBlocksToStream();
 
   // Description:
   // This is the data object generated processed by the most recent call to
@@ -157,6 +195,8 @@ protected:
   // Used to keep track of data bounds.
   vtkBoundingBox DataBounds;
 
+  std::vector<int> StreamingRequest;
+  int StreamingRequestSize;
   bool UseOutline;
 
 private:
@@ -177,7 +217,6 @@ private:
   // and we need to clear our streaming buffers since the streamed data is no
   // longer valid.
   bool InStreamingUpdate;
-
 //ETX
 };
 

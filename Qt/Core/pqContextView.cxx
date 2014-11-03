@@ -31,40 +31,33 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ========================================================================*/
 #include "pqContextView.h"
 
+#include "pqDataRepresentation.h"
 #include "pqEventDispatcher.h"
 #include "pqImageUtil.h"
 #include "pqOutputPort.h"
 #include "pqPipelineSource.h"
-#include "pqDataRepresentation.h"
+#include "pqQVTKWidget.h"
 #include "pqServer.h"
-#include "pqImageUtil.h"
 #include "pqSMAdaptor.h"
-
-#include "vtkEventQtSlotConnect.h"
+#include "vtkAnnotationLink.h"
+#include "vtkChartXY.h"
+#include "vtkCommand.h"
+#include "vtkContextView.h"
 #include "vtkErrorCode.h"
+#include "vtkEventQtSlotConnect.h"
+#include "vtkIdTypeArray.h"
 #include "vtkImageData.h"
+#include "vtkNew.h"
+#include "vtkProcessModule.h"
 #include "vtkPVDataInformation.h"
 #include "vtkPVXMLElement.h"
-#include "vtkProcessModule.h"
-
-#include "vtkContextView.h"
-#include "vtkSMContextViewProxy.h"
-#include "vtkChartXY.h"
-#include "vtkAnnotationLink.h"
 #include "vtkSelection.h"
 #include "vtkSelectionNode.h"
-#include "vtkAbstractArray.h"
-#include "vtkIdTypeArray.h"
-#include "vtkVariant.h"
-#include "vtkSMSourceProxy.h"
-#include "vtkSMStringVectorProperty.h"
-#include "vtkSMSessionProxyManager.h"
+#include "vtkSMContextViewProxy.h"
 #include "vtkSMPropertyHelper.h"
-
-#include "vtkCommand.h"
-#include "vtkNew.h"
-
-#include "pqQVTKWidget.h"
+#include "vtkSMSelectionHelper.h"
+#include "vtkSMSourceProxy.h"
+#include "vtkVariant.h"
 
 #include <QList>
 #include <QVariant>
@@ -233,66 +226,6 @@ vtkSMContextViewProxy* pqContextView::getContextViewProxy() const
 }
 
 //-----------------------------------------------------------------------------
-/// This view does not support saving to image.
-bool pqContextView::saveImage(int width, int height, const QString& filename)
-{
-  QWidget* vtkwidget = this->getWidget();
-  QSize cursize = vtkwidget->size();
-  QSize fullsize = QSize(width, height);
-  QSize newsize = cursize;
-  int magnification = 1;
-  if (width>0 && height>0)
-    {
-    magnification = pqView::computeMagnification(fullsize, newsize);
-    vtkwidget->resize(newsize);
-    }
-  this->render();
-
-  int error_code = vtkErrorCode::UnknownError;
-  vtkImageData* vtkimage = this->captureImage(magnification);
-  if (vtkimage)
-    {
-    error_code = pqImageUtil::saveImage(vtkimage, filename);
-    vtkimage->Delete();
-    }
-
-  switch (error_code)
-    {
-    case vtkErrorCode::UnrecognizedFileTypeError:
-      qCritical() << "Failed to determine file type for file:"
-        << filename.toAscii().data();
-      break;
-    case vtkErrorCode::NoError:
-      // success.
-      break;
-    default:
-      qCritical() << "Failed to save image.";
-    }
-
-  if (width>0 && height>0)
-    {
-    vtkwidget->resize(newsize);
-    vtkwidget->resize(cursize);
-    this->render();
-    }
-  return (error_code == vtkErrorCode::NoError);
-}
-
-//-----------------------------------------------------------------------------
-/// Capture the view image into a new vtkImageData with the given magnification
-/// and returns it. The caller is responsible for freeing the returned image.
-vtkImageData* pqContextView::captureImage(int magnification)
-{
-  if (this->getWidget()->isVisible())
-    {
-    return this->getContextViewProxy()->CaptureWindow(magnification);
-    }
-
-  // Don't return any image when the view is not visible.
-  return NULL;
-}
-
-//-----------------------------------------------------------------------------
 bool pqContextView::supportsSelection() const
 {
   return true;
@@ -306,76 +239,18 @@ void pqContextView::resetDisplay()
   if (proxy)
     {
     proxy->ResetDisplay();
+    this->render();
     }
-}
-
-//-----------------------------------------------------------------------------
-/// Returns true if data on the given output port can be displayed by this view.
-bool pqContextView::canDisplay(pqOutputPort* opPort) const
-{
-  if(this->Superclass::canDisplay(opPort))
-    {
-    return true;
-    }
-
-  pqPipelineSource* source = opPort? opPort->getSource() :0;
-  vtkSMSourceProxy* sourceProxy = source ?
-    vtkSMSourceProxy::SafeDownCast(source->getProxy()) : 0;
-  if(!opPort || !source ||
-     opPort->getServer()->GetConnectionID() !=
-     this->getServer()->GetConnectionID() || !sourceProxy ||
-     sourceProxy->GetOutputPortsCreated()==0)
-    {
-    return false;
-    }
-
-  if (sourceProxy->GetHints() &&
-    sourceProxy->GetHints()->FindNestedElementByName("Plotable"))
-    {
-    return true;
-    }
-
-  vtkPVDataInformation* dataInfo = opPort->getDataInformation();
-  if ( !dataInfo )
-    {
-    return false;
-    }
-
-  QString className = dataInfo->GetDataClassName();
-  if( className == "vtkTable" )
-    {
-    return true;
-    }
-  else if(className == "vtkImageData" || className == "vtkRectilinearGrid")
-    {
-    int extent[6];
-    dataInfo->GetExtent(extent);
-    int temp[6]={0, 0, 0, 0, 0, 0};
-    int dimensionality = vtkStructuredData::GetDataDimension(
-      vtkStructuredData::SetExtent(extent, temp));
-    if (dimensionality == 1)
-      {
-      return true;
-      }
-    }
-  return false;
 }
 
 void pqContextView::selectionChanged()
 {
   // Fill the selection source with the selection from the view
-  vtkSelection* sel = 0;
-
-  if(vtkChart *chart = vtkChart::SafeDownCast(this->getContextViewProxy()->GetContextItem()))
+  vtkSelection* sel = this->getContextViewProxy()->GetCurrentSelection();
+  if (sel)
     {
-    sel = chart->GetAnnotationLink()->GetCurrentSelection();
+    this->setSelection(sel);
     }
-
-  if(!sel)
-    {
-    return;
-    }
-  this->setSelection(sel);
 }
 
 void pqContextView::setSelection(vtkSelection* sel)
@@ -399,62 +274,15 @@ void pqContextView::setSelection(vtkSelection* sel)
   pqOutputPort* opPort = pqRepr->getOutputPortFromInput();
   vtkSMSourceProxy* repSource = vtkSMSourceProxy::SafeDownCast(
     opPort->getSource()->getProxy());
-  vtkSMSourceProxy* selectionSource = opPort->getSelectionInput();
 
-  int selectionType = vtkSelectionNode::POINT;
-  if (QString(opPort->getDataClassName()) == "vtkTable")
-    {
-    selectionType = vtkSelectionNode::ROW;
-    }
-
-  if (!selectionSource)
-    {
-    vtkSMSessionProxyManager* pxm = this->proxyManager();
-    selectionSource =
-      vtkSMSourceProxy::SafeDownCast(pxm->NewProxy("sources", "IDSelectionSource"));
-    vtkSMPropertyHelper(selectionSource, "FieldType").Set(selectionType);
-    selectionSource->UpdateVTKObjects();
-    }
-  else
-    {
-    selectionSource->Register(repSource);
-    }
-
-  // Fill the selection source with the selection
-  vtkSMVectorProperty* vp = vtkSMVectorProperty::SafeDownCast(
-    selectionSource->GetProperty("IDs"));
-  QList<QVariant> ids = pqSMAdaptor::getMultipleElementProperty(vp);
-
-  vtkSelectionNode* node = 0;
-
-  if (sel->GetNumberOfNodes())
-    {
-    node = sel->GetNode(0);
-    }
-  else
-    {
-    node = vtkSelectionNode::New();
-    sel->AddNode(node);
-    node->Delete();
-    }
-
-  vtkIdTypeArray *arr = vtkIdTypeArray::SafeDownCast(node->GetSelectionList());
-  ids.clear();
-  if (arr)
-    {
-    for (vtkIdType i = 0; i < arr->GetNumberOfTuples(); ++i)
-      {
-      ids.push_back(-1);
-      ids.push_back(arr->GetValue(i));
-      }
-    }
-
-  pqSMAdaptor::setMultipleElementProperty(vp, ids);
-  selectionSource->UpdateVTKObjects();
+  vtkSMProxy* selectionSource =
+    vtkSMSelectionHelper::NewSelectionSourceFromSelection(
+      repSource->GetSession(), sel);
 
   // Set the selection on the representation's source
   repSource->CleanSelectionInputs(opPort->getPortNumber());
-  repSource->SetSelectionInput(opPort->getPortNumber(), selectionSource, 0);
+  repSource->SetSelectionInput(opPort->getPortNumber(),
+    vtkSMSourceProxy::SafeDownCast(selectionSource), 0);
   selectionSource->Delete();
 
   emit this->selected(opPort);

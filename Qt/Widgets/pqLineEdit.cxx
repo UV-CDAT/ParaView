@@ -50,7 +50,8 @@ pqLineEdit::pqLineEdit(QWidget *_parent) :Superclass(_parent),
 //-----------------------------------------------------------------------------
 pqLineEdit::pqLineEdit(const QString &_contents, QWidget *_parent):
   Superclass(_contents, _parent),
-  EditingFinishedPending(false)
+  EditingFinishedPending(false),
+  ResetCursorPositionOnEditingFinished(true)
 {
   this->connect(this, SIGNAL(editingFinished()),
     this, SLOT(onEditingFinished()));
@@ -77,7 +78,10 @@ void pqLineEdit::onEditingFinished()
     emit this->textChangedAndEditingFinished();
     this->EditingFinishedPending = false;
     }
-  this->setCursorPosition(0);
+  if (this->ResetCursorPositionOnEditingFinished)
+    {
+    this->setCursorPosition(0);
+    }
 }
 
 //-----------------------------------------------------------------------------
@@ -91,14 +95,12 @@ void pqLineEdit::setTextAndResetCursor(const QString& val)
 }
 
 //-----------------------------------------------------------------------------
-void pqLineEdit::keyPressEvent(QKeyEvent *e)
+void pqLineEdit::triggerTextChangedAndEditingFinished()
 {
   // Since we do not update this->EditingFinishedPending when the text is
   // changed programmatically, textChangedAndEditingFinished() wasn't getting
   // fired after setText() was called during test playback. To overcome that
-  // issue, we listen to keyPressEvent(). If we get a key event, we assume the
-  // text has indeed changed.
-  this->EditingFinishedPending = true;
-
-  this->Superclass::keyPressEvent(e);
+  // issue, the playback manually calls this method.
+  this->onTextEdited();
+  this->onEditingFinished();
 }

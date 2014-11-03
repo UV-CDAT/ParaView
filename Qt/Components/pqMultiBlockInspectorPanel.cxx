@@ -180,7 +180,9 @@ void pqMultiBlockInspectorPanel::setRepresentation(pqRepresentation *representat
     {
     this->BlockVisibilites.clear();
     this->BlockColors.clear();
+    this->TreeWidget->blockSignals(true);
     this->TreeWidget->clear();
+    this->TreeWidget->blockSignals(false);
     }
 }
 
@@ -222,6 +224,10 @@ void pqMultiBlockInspectorPanel::buildTree(vtkPVCompositeDataInformation *info,
         {
         this->buildTree(compositeChildInfo, item, flatIndex);
         }
+      }
+    else
+      {
+      item->setDisabled(true);
       }
     }
 }
@@ -891,8 +897,8 @@ void pqMultiBlockInspectorPanel::currentSelectionChanged(pqOutputPort *port)
   foreach(QTreeWidgetItem *item,
           this->TreeWidget->findItems("", Qt::MatchContains | Qt::MatchRecursive))
     {
-    unsigned int flatIndex =
-      item->data(0, Qt::UserRole).value<unsigned int>();
+    vtkIdType flatIndex =
+      item->data(0, Qt::UserRole).value<vtkIdType>();
 
     item->setSelected(
       std::binary_search(block_ids.begin(), block_ids.end(), flatIndex));

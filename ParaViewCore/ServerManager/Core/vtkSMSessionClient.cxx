@@ -25,8 +25,10 @@
 #include "vtkProcessModule.h"
 #include "vtkPVConfig.h"
 #include "vtkPVMultiClientsInformation.h"
+#include "vtkPVOptions.h"
 #include "vtkPVServerInformation.h"
 #include "vtkPVSessionServer.h"
+#include "vtkSMSettings.h"
 #include "vtkReservedRemoteObjectIds.h"
 #include "vtkSMCollaborationManager.h"
 #include "vtkSMMessage.h"
@@ -156,10 +158,17 @@ bool vtkSMSessionClient::Connect(const char* url)
   vtksys::RegularExpression pvrenderserver_reverse (
     "^cdsrsrc://(([^:]+)?(:([0-9]+))?/([^:]+)?(:([0-9]+))?)?");
 
+  vtkProcessModule* pm = vtkProcessModule::GetProcessModule();
+  vtkPVOptions* options = pm->GetOptions();
+
   vtksys_ios::ostringstream handshake;
   handshake << "handshake=paraview." << PARAVIEW_VERSION;
-  // Add connect-id if needed (or maybe we extract that from url as well
-  // (just like vtkNetworkAccessManager).
+  // Add connect-id if needed. The connect-id is added to the handshake that
+  // must match on client and server processes.
+  if (options->GetConnectID() != 0)
+    {
+    handshake << ".connect_id." << options->GetConnectID();
+    }
 
   std::string data_server_url;
   std::string render_server_url;
@@ -224,8 +233,7 @@ bool vtkSMSessionClient::Connect(const char* url)
     }
 
   bool need_rcontroller = render_server_url.size() > 0;
-  vtkNetworkAccessManager* nam =
-    vtkProcessModule::GetProcessModule()->GetNetworkAccessManager();
+  vtkNetworkAccessManager* nam = pm->GetNetworkAccessManager();
   vtkMultiProcessController* dcontroller =
     nam->NewConnection(data_server_url.c_str());
   vtkMultiProcessController* rcontroller = need_rcontroller?
@@ -405,6 +413,44 @@ int vtkSMSessionClient::GetNumberOfProcesses(vtkTypeUInt32 servers)
     }
 
   return num_procs;
+}
+
+//----------------------------------------------------------------------------
+bool vtkSMSessionClient::IsMPIInitialized(vtkTypeUInt32 servers)
+{
+  // keep track to make sure that we checked something before returning true
+  bool checked = false;
+  if (servers & vtkPVSession::CLIENT)
+    {
+    if (this->Superclass::IsMPIInitialized(servers) == false)
+      {
+      return false;
+      }
+    checked = true;
+    }
+  if (servers & vtkPVSession::DATA_SERVER ||
+    servers & vtkPVSession::DATA_SERVER_ROOT)
+    {
+    if (this->DataServerInformation->IsMPIInitialized() == false)
+      {
+      return false;
+      }
+    checked = true;
+    }
+  if (servers & vtkPVSession::RENDER_SERVER ||
+    servers & vtkPVSession::RENDER_SERVER_ROOT)
+    {
+    if (this->RenderServerInformation->IsMPIInitialized() == false)
+      {
+      return false;
+      }
+    checked = true;
+    }
+  if(checked == false)
+    {
+    vtkWarningMacro("Did not check any servers for MPI.");
+    }
+  return checked;
 }
 
 //----------------------------------------------------------------------------

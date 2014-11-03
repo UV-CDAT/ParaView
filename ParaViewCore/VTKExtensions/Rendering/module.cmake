@@ -9,7 +9,7 @@ if (PARAVIEW_USE_MPI)
   endif()
 endif()
 
-if(PARAVIEW_ENABLE_PYTHON AND PARAVIEW_ENABLE_MATPLOTLIB)
+if(PARAVIEW_ENABLE_MATPLOTLIB)
   list(APPEND __dependencies vtkRenderingMatplotlib)
 endif()
 
@@ -21,6 +21,8 @@ vtk_module(vtkPVVTKExtensionsRendering
   GROUPS
     Qt
     ParaViewRendering
+  PRIVATE_DEPENDS
+    vtkCommonColor
   DEPENDS
     vtkChartsCore
     vtkFiltersExtraction
@@ -39,6 +41,8 @@ vtk_module(vtkPVVTKExtensionsRendering
     vtkRenderingLIC
 
     ${__dependencies}
+PRIVATE_DEPENDS
+    vtkzlib
   COMPILE_DEPENDS
     vtkUtilitiesEncodeString
 
@@ -48,8 +52,11 @@ vtk_module(vtkPVVTKExtensionsRendering
     vtkIOXML
     vtkRenderingOpenGL
     vtkRenderingLIC
+    vtkTestingCore
     vtkTestingRendering
 
   TEST_LABELS
     PARAVIEW
+  KIT
+    vtkPVExtensions
 )

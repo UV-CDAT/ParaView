@@ -126,7 +126,7 @@ public:
   // Description:
   // Set the property's default value based on the domain. How the value is
   // determined using the range is controlled by DefaultMode.
-  virtual int SetDefaultValues(vtkSMProperty*);
+  virtual int SetDefaultValues(vtkSMProperty*, bool use_unchecked_values);
 
 //BTX
 protected:
@@ -158,7 +158,7 @@ protected:
       this->Valid[0] = this->Valid[1] = true;
       }
 
-    bool operator==(const vtkEntry& other)
+    bool operator==(const vtkEntry& other) const
       {
       return this->Valid == other.Valid && this->Value == other.Value;
       }
@@ -170,8 +170,11 @@ protected:
     { return this->Entries; }
   void SetEntries(const std::vector<vtkEntry>& new_value)
     {
+    typedef typename std::vector<vtkEntry>::const_iterator cit;
+    cit b = this->Entries.begin();
+    cit e = this->Entries.end();
     if (this->Entries.size() != new_value.size() ||
-      !std::equal(this->Entries.begin(), this->Entries.end(), new_value.begin()))
+      !std::equal(b,e, new_value.begin()))
       {
       this->Entries = new_value;
       this->DomainModified();

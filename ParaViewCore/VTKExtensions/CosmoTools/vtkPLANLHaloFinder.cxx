@@ -270,45 +270,8 @@ vtkMultiProcessController* vtkPLANLHaloFinder::GetController()
 }
 
 //------------------------------------------------------------------------------
-int vtkPLANLHaloFinder::RequestInformation
-(vtkInformation* vtkNotUsed(request),
- vtkInformationVector** inputVector,
- vtkInformationVector* outputVector)
-{
-  assert("pre: controller should not be NULL!" && (this->Controller != NULL));
-
-  // set the other outputs to have the same number of pieces
-  if((*inputVector)->GetInformationObject(0)->Has(
-        vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES()))
-    {
-    if(outputVector->GetInformationObject(1)->Has(
-          vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES()))
-      {
-      if(outputVector->GetInformationObject(0)->Get
-         (vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES()) !=
-         outputVector->GetInformationObject(1)->Get
-         (vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES()))
-        {
-        outputVector->GetInformationObject(1)->Set
-          (vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES(),
-           outputVector->GetInformationObject(0)->Get
-           (vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES()));
-        }
-      }
-    else
-      {
-      outputVector->GetInformationObject(1)->Set
-        (vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES(),
-         outputVector->GetInformationObject(0)->Get
-         (vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES()));
-      }
-    }
-  return 1;
-}
-
-//------------------------------------------------------------------------------
 int vtkPLANLHaloFinder::RequestData(
-          vtkInformation* request,
+          vtkInformation* vtkNotUsed(request),
           vtkInformationVector** inputVector,
           vtkInformationVector* outputVector)
 {
@@ -391,6 +354,9 @@ void vtkPLANLHaloFinder::ComputeSODHalos(
       vtkUnstructuredGrid *particles,
       vtkUnstructuredGrid *fofHaloCenters)
 {
+#ifdef NDEBUG
+  (void)(particles);
+#endif
   assert("pre: input particles should not be NULL" &&
          (particles != NULL) );
   assert("pre: FOF halo-centers should not be NULL" &&
@@ -713,7 +679,8 @@ void vtkPLANLHaloFinder::ComputeFOFHalos(
     {
     int haloIdx = this->Halos->ExtractedHalos[ halo ];
     assert( "pre: haloIdx is out-of-bounds!" &&
-            (haloIdx >= 0) && (haloIdx < this->Halos->fofMass.size() ) );
+            (haloIdx >= 0) &&
+            (haloIdx < static_cast<int>(this->Halos->fofMass.size())) );
 
     this->MarkHaloParticlesAndGetCenter(halo,haloIdx,center,particles);
     pnts->SetPoint( halo, center );
@@ -796,22 +763,22 @@ void vtkPLANLHaloFinder::MarkHaloParticlesAndGetCenter(
     {
     case CENTER_OF_MASS:
       assert("pre:center of mass has not been constructed correctly!" &&
-             (this->Halos->fofXCofMass.size()==numberOfHalos));
+        (static_cast<int>(this->Halos->fofXCofMass.size())==numberOfHalos));
       assert("pre:center of mass has not been constructed correctly!" &&
-             (this->Halos->fofYCofMass.size()==numberOfHalos));
+        (static_cast<int>(this->Halos->fofYCofMass.size())==numberOfHalos));
       assert("pre:center of mass has not been constructed correctly!" &&
-             (this->Halos->fofZCofMass.size()==numberOfHalos));
+        (static_cast<int>(this->Halos->fofZCofMass.size())==numberOfHalos));
       center[0] = this->Halos->fofXCofMass[ internalHaloIdx ];
       center[1] = this->Halos->fofYCofMass[ internalHaloIdx ];
       center[2] = this->Halos->fofZCofMass[ internalHaloIdx ];
       break;
     case AVERAGE:
       assert("pre:average halo center has not been constructed correctly!" &&
-             (this->Halos->fofXPos.size()==numberOfHalos));
+         (static_cast<int>(this->Halos->fofXPos.size())==numberOfHalos));
       assert("pre:average halo center has not been constructed correctly!" &&
-             (this->Halos->fofYPos.size()==numberOfHalos));
+         (static_cast<int>(this->Halos->fofYPos.size())==numberOfHalos));
       assert("pre:average halo center has not been constructed correctly!" &&
-             (this->Halos->fofZPos.size()==numberOfHalos));
+         (static_cast<int>(this->Halos->fofZPos.size())==numberOfHalos));
       center[0] = this->Halos->fofXPos[ internalHaloIdx ];
       center[1] = this->Halos->fofYPos[ internalHaloIdx ];
       center[2] = this->Halos->fofZPos[ internalHaloIdx ];
@@ -968,15 +935,15 @@ void vtkPLANLHaloFinder::ComputeFOFHaloProperties()
 
   // Sanity checks!
   assert("post: FOF mass property not correctly computed!" &&
-         (this->Halos->fofMass.size()==numberOfHalos) );
+          (static_cast<int>(this->Halos->fofMass.size())==numberOfHalos) );
   assert("post: FOF x-velocity component not correctly computed!" &&
-         (this->Halos->fofXVel.size()==numberOfHalos) );
+          (static_cast<int>(this->Halos->fofXVel.size())==numberOfHalos) );
   assert("post: FOF y-velocity component not correctly computed!" &&
-         (this->Halos->fofYVel.size()==numberOfHalos) );
+          (static_cast<int>(this->Halos->fofYVel.size())==numberOfHalos) );
   assert("post: FOF z-velocity component not correctly computed!" &&
-         (this->Halos->fofZVel.size()==numberOfHalos) );
+          (static_cast<int>(this->Halos->fofZVel.size())==numberOfHalos) );
   assert("post: FOF velocity dispersion not correctly computed!" &&
-         (this->Halos->fofVelDisp.size()==numberOfHalos));
+          (static_cast<int>(this->Halos->fofVelDisp.size())==numberOfHalos));
 
   delete fof;
 }

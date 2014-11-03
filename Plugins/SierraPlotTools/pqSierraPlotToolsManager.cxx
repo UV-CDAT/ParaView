@@ -63,7 +63,6 @@
 #include "pqPipelineSource.h"
 #include "pqRenderView.h"
 #include "pqScalarsToColors.h"
-#include "pqSelectionInspectorPanel.h"
 #include "pqServer.h"
 #include "pqServerManagerModel.h"
 #include <pqSetName.h>
@@ -234,7 +233,6 @@ public:
   QString whoAmI;
   QList<QPair<int,QString> > plotHeaders;
   QMap<int, QString> typeToHeaderMap;
-  QList<pqSelectionInspectorPanel *> selectionInspectors;
 
   QVector<QString> plotMenuItemsList;
   QMap<QString, PlotterMetaData *> plotterMap;
@@ -1415,10 +1413,9 @@ bool pqSierraPlotToolsManager::createPlotOverTime()
   // Make representation
   //
   pqDataRepresentation *repr;
-  repr = displayPolicy->createPreferredRepresentation(
-                                 plotFilter->getOutputPort(0), plotView, false);
-  repr->setVisible(true);
-
+  repr = displayPolicy->setRepresentationVisibility(
+    plotFilter->getOutputPort(0), plotView, true);
+  (void)repr;
 
   // UpdateSelfAndAllInputs--
   // Calls UpdateVTKObjects() on self and all proxies that depend on this proxy

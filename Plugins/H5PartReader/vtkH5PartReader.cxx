@@ -306,7 +306,7 @@ int vtkH5PartReader::RequestInformation(
   vtkInformationVector *outputVector)
 {
   vtkInformation *outInfo = outputVector->GetInformationObject(0);
-  outInfo->Set(vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES(), -1);
+  outInfo->Set(CAN_HANDLE_PIECE_REQUEST(), 1);
 
 #ifdef PARAVIEW_USE_MPI
   if (this->Controller)
@@ -744,10 +744,10 @@ int vtkH5PartReader::RequestData(
       dataarray->SetName(rootname.c_str());
 
       // now read the data components.
-      hsize_t count1_mem[] = { Nt*Nc };
-      hsize_t count2_mem[] = { Nt };
+      hsize_t count1_mem[] = { static_cast<hsize_t>(Nt*Nc) };
+      hsize_t count2_mem[] = { static_cast<hsize_t>(Nt) };
       hsize_t offset_mem[] = { 0 };
-      hsize_t stride_mem[] = { Nc };
+      hsize_t stride_mem[] = { static_cast<hsize_t>(Nc) };
       for (int c=0; c<Nc; c++)
         {
         const char *name = arraylist[c].c_str();

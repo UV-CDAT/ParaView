@@ -428,10 +428,7 @@ vtkStringList* vtkSMReaderFactory::GetPossibleReaders(const char* filename,
 {
   this->Readers->RemoveAllItems();
 
-  if (!filename || filename[0] == 0)
-    {
-    return this->Readers;
-    }
+  bool empty_filename =  (!filename || filename[0] == 0);
 
   std::vector<std::string> extensions;
   // purposefully set the extensions to empty, since we don't want the extension
@@ -442,7 +439,7 @@ vtkStringList* vtkSMReaderFactory::GetPossibleReaders(const char* filename,
     iter != this->Internals->Prototypes.end(); ++iter)
     {
     if (iter->second.CanCreatePrototype(session) &&
-      (!filename || iter->second.CanReadFile(filename, extensions, session, true)))
+      (empty_filename || iter->second.CanReadFile(filename, extensions, session, true)))
       {
       iter->second.FillInformation(session);
       this->Readers->AddString(iter->second.Group.c_str());
@@ -588,6 +585,17 @@ bool vtkSMReaderFactory::CanReadFile(const char* filename, vtkSMProxy* proxy)
   vtkSMSession* session = proxy->GetSession();
 
   vtkSMSourceProxy* source = vtkSMSourceProxy::SafeDownCast(proxy);
+
+  // first check if the source requires MPI to be initialized and
+  // that it is initialized on the server.
+  if (source && source->GetMPIRequired() &&
+      session->IsMPIInitialized(source->GetLocation()) == false)
+    {
+    return false;
+    }
+
+  // Check if the source requires multiple processes and if we have
+  // multiple processes on the server.
   if (source && session->GetNumberOfProcesses(source->GetLocation()) > 1)
     {
     if (source->GetProcessSupport() == vtkSMSourceProxy::SINGLE_PROCESS)

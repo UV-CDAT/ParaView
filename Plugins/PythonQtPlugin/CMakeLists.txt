@@ -17,13 +17,23 @@ include_directories(${VTK_INCLUDE_DIRS})
 
 set(decorator_file ${CMAKE_CURRENT_BINARY_DIR}/pqPluginDecorators.h)
 
-
-qt4_wrap_cpp(MOC_SRCS
+set(PythonQtPlugin_MOC_SRCS
   pqPythonQtPlugin.h
   pqPythonQtMethodHelpers.h
   pqPythonEventFilter.h
-  ${decorator_file}
   )
+
+if (PARAVIEW_QT_VERSION VERSION_GREATER "4")
+  qt5_wrap_cpp(MOC_SRCS
+    ${PythonQtPlugin_MOC_SRCS}
+    ${decorator_file}
+    )
+else ()
+  qt4_wrap_cpp(MOC_SRCS
+    ${PythonQtPlugin_MOC_SRCS}
+    ${decorator_file}
+    )
+endif ()
 
 set(srcs
   pqPythonQtPlugin.cxx
@@ -48,7 +58,7 @@ add_paraview_plugin(PythonQtPlugin "1.0"
                     GUI_SOURCES ${OUTSRCS} ${MOC_SRCS} ${srcs}
                     REQUIRED_ON_CLIENT)
 
-target_link_libraries(PythonQtPlugin ${deps})
+target_link_libraries(PythonQtPlugin LINK_PRIVATE ${deps})
 
 find_package(PythonInterp REQUIRED)
 add_custom_command(OUTPUT ${decorator_file}

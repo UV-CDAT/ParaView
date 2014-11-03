@@ -27,6 +27,7 @@
 #include "vtkCommand.h"
 #include <vtkPVXMLElement.h>
 #include "vtkSMProperty.h"
+#include "vtkSMProxy.h"
 #include <typeinfo>
 #include <limits>
 
@@ -44,6 +45,7 @@ namespace
       }
 
   template <>
+  vtkMaybeUnused("not used in non-string specializations")
     vtkStdString vtkSMVPConvertFromString<vtkStdString>(
       const std::string& string_representation)
       { return string_representation; }
@@ -219,7 +221,6 @@ public:
     // the value would not be pushed.
     this->Initialized = true;
     this->Property->Modified();
-
     this->ClearUncheckedElements();
     return 1;
     }
@@ -252,11 +253,20 @@ public:
       }
 
     std::copy(values, values+numArgs, this->Values.begin());
-
     this->Initialized = true;
-    this->Property->Modified();
-
-    this->ClearUncheckedElements();
+    if (!modified && numValues==0)
+      {
+      // handle the case when the property didn't have valid values but the new
+      // values don't really change anything. In that case, the property hasn't
+      // really been modified, so skip invoking the event. This keeps Python
+      // trace from ending up with lots of properties such as EdgeBlocks etc for
+      // ExodusIIReader which haven't really changed at all.
+      }
+    else
+      {
+      this->Property->Modified();
+      this->ClearUncheckedElements();
+      }
     return 1;
     }
 
@@ -297,7 +307,7 @@ public:
     }
 
   //---------------------------------------------------------------------------
-  void ResetToDefaultInternal()
+  void ResetToXMLDefaults()
     {
     if (this->DefaultsValid && this->DefaultValues != this->Values)
       {

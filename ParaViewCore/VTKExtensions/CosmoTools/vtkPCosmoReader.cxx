@@ -90,7 +90,7 @@ using namespace std;
 using namespace cosmotk;
 
 vtkStandardNewMacro(vtkPCosmoReader);
-
+vtkCxxSetObjectMacro(vtkPCosmoReader, Controller, vtkMultiProcessController);
 //----------------------------------------------------------------------------
 vtkPCosmoReader::vtkPCosmoReader()
 {
@@ -98,9 +98,11 @@ vtkPCosmoReader::vtkPCosmoReader()
 
   this->Controller = 0;
   this->SetController(vtkMultiProcessController::GetGlobalController());
-  if(!this->Controller)
+  if (!this->Controller)
     {
-      this->SetController(vtkSmartPointer<vtkDummyController>::New());
+    vtkSmartPointer<vtkDummyController> controller =
+      vtkSmartPointer<vtkDummyController>::New();
+    this->SetController(controller);
     }
 
   this->FileName = NULL;
@@ -118,7 +120,6 @@ vtkPCosmoReader::~vtkPCosmoReader()
     {
     delete [] this->FileName;
     }
-
   this->SetController(0);
 }
 
@@ -144,36 +145,6 @@ void vtkPCosmoReader::PrintSelf(ostream& os, vtkIndent indent)
 }
 
 //----------------------------------------------------------------------------
-void vtkPCosmoReader::SetController(vtkMultiProcessController *c)
-{
-  if(this->Controller == c)
-    {
-    return;
-    }
-
-  this->Modified();
-
-  if(this->Controller != 0)
-    {
-    this->Controller->UnRegister(this);
-    this->Controller = 0;
-    }
-
-  if(c == 0)
-    {
-    return;
-    }
-
-  this->Controller = c;
-  c->Register(this);
-}
-
-vtkMultiProcessController* vtkPCosmoReader::GetController()
-{
-  return (vtkMultiProcessController*)this->Controller;
-}
-
-//----------------------------------------------------------------------------
 int vtkPCosmoReader::RequestInformation(
   vtkInformation *vtkNotUsed(request),
   vtkInformationVector **vtkNotUsed(inputVector),
@@ -181,8 +152,7 @@ int vtkPCosmoReader::RequestInformation(
 {
   // set the pieces as the number of processes
   outputVector->GetInformationObject(0)->Set
-    (vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES(),
-     this->Controller->GetNumberOfProcesses());
+    (CAN_HANDLE_PIECE_REQUEST(),1);
 
   outputVector->GetInformationObject(0)->Set
     (vtkDataObject::DATA_NUMBER_OF_PIECES(),

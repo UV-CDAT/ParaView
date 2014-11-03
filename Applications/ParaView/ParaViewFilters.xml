@@ -41,6 +41,11 @@
     <Proxy group="filters" name="PlotOnIntersectionCurves" omit_from_toolbar="1"/>
     <Proxy group="filters" name="ProgrammableFilter"
             icon=":/pqWidgets/Icons/pqProgrammableFilter24.png" omit_from_toolbar="1"/>
+    <Proxy group="filters" name="TransposeTable" omit_from_toolbar="1"/>
+    <Proxy group="filters" name="ComputeQuartiles"
+            icon=":/pqWidgets/Icons/pqBoxChart16.png" omit_from_toolbar="1"/>
+    <Proxy group="filters" name="ExtractBagPlots"
+            icon=":/pqWidgets/Icons/pqFunctionalBagChart16.png" omit_from_toolbar="1"/>
   </Category>
 
   <Category name="Statistics" menu_label="&amp;Statistics">
@@ -76,6 +81,9 @@
     <Proxy group="filters" name="MaterialInterfaceFilter" />
     <Proxy group="filters" name="AMRDualClip" />
     <Proxy group="filters" name="AMRDualContour" />
+    <Proxy group="filters" name="AMRConnectivity" />
+    <Proxy group="filters" name="AMRFragmentIntegration" />
+    <Proxy group="filters" name="AMRFragmentsFilter"/>
     <Proxy group="filters" name="ExtractHierarchicalLevel" />
     <Proxy group="filters" name="ExtractHierarchicalDataSets" />
   </Category>
@@ -98,15 +106,16 @@
     <Proxy group="filters" name="QuadratureSchemeDictionaryGenerator" />
   </Category>
 
+
   <Proxy group="filters" name="ImageDataToAMR" />
   <Proxy group="filters" name="UniformGridPartitioner" />
   <Proxy group="filters" name="AnnotateGlobalData" />
   <Proxy group="filters" name="Append" />
   <Proxy group="filters" name="AppendAttributes" />
   <Proxy group="filters" name="AppendPolyData" />
-  <Proxy group="filters" name="ArbitrarySourceGlyph" />
   <Proxy group="filters" name="ArbitrarySourceStreamTracer" />
   <Proxy group="filters" name="BlockIdScalars" />
+  <Proxy group="filters" name="RandomAttributeGenerator" />
   <Proxy group="filters" name="BrownianPoints" />
   <Proxy group="filters" name="Calculator" />
   <Proxy group="filters" name="CellCenters" />
@@ -140,6 +149,7 @@
   <Proxy group="filters" name="GaussianSplatter"/>
   <Proxy group="filters" name="GenerateIdScalars"/>
   <Proxy group="filters" name="Glyph" />
+  <Proxy group="filters" name="GlyphWithCustomSource" />
   <Proxy group="filters" name="Gradient" />
   <Proxy group="filters" name="GridConnectivity" />
   <Proxy group="filters" name="GroupDataSets" />
@@ -147,6 +157,7 @@
   <Proxy group="filters" name="ImageDataToPointSet" />
   <Proxy group="filters" name="IntegrateAttributes" />
   <Proxy group="filters" name="IntegrateFlowThroughSurface" />
+  <Proxy group="filters" name="LegacyGlyph" />
   <!--  <Proxy group="filters" name="LevelIdScalars" /> -->
   <Proxy group="filters" name="LinearExtrusionFilter" />
   <Proxy group="filters" name="LoopSubdivisionFilter" />
@@ -167,6 +178,7 @@
   <Proxy group="filters" name="PointDataToCellData" />
   <Proxy group="filters" name="PolyDataNormals" />
   <Proxy group="filters" name="Probe" />
+  <Proxy group="filters" name="ImageResampling" />
   <Proxy group="filters" name="ProbeLine" />
   <Proxy group="filters" name="ProbePoint" />
   <Proxy group="filters" name="ProcessIdScalars" />
@@ -195,6 +207,7 @@
   <Proxy group="filters" name="TemporalSnapToTimeStep" />
   <Proxy group="filters" name="TemporalShiftScale" />
   <Proxy group="filters" name="TemporalStatistics" />
+  <Proxy group="filters" name="TensorGlyph" />
   <Proxy group="filters" name="TessellatorFilter" />
   <Proxy group="filters" name="TextureMapToCylinder" />
   <Proxy group="filters" name="TextureMapToPlane" />
@@ -218,4 +231,5 @@
   <Proxy group="filters" name="GenericCut" />
   <Proxy group="filters" name="GenericStreamTracer" />
   <Proxy group="filters" name="GenericGeometryFilter" />
+  <Proxy group="filters" name="SliceAlongPolyLine" />
 </ParaViewFilters>

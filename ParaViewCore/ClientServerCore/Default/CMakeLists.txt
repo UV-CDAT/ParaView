@@ -35,7 +35,7 @@ set (Module_SRCS
   vtkPVFileInformation.cxx
   vtkPVFileInformationHelper.cxx
   vtkPVSingleOutputExtractSelection.cxx
-  vtkXMLPVAnimationWriter.cxx
+  vtkSliceAlongPolyPlane.cxx
 )
 
 if (PARAVIEW_ENABLE_PYTHON)
@@ -53,5 +53,6 @@ vtk_module_library(vtkPVClientServerCoreDefault ${Module_SRCS})
 
 # for vtkPVFileInformation
 if (WIN32)
-  target_link_libraries(vtkPVClientServerCoreDefault mpr)
+  target_link_libraries(vtkPVClientServerCoreDefault
+    LINK_PRIVATE mpr)
 endif()

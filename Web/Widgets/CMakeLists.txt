@@ -5,19 +5,6 @@ vtk_module_export("")
 # Everything under other directories is placed in www/lib/js or www/lib/css
 
 # =================================================================
-# External components
-# =================================================================
-
-set(ext_source_dir "${CMAKE_CURRENT_SOURCE_DIR}/Ext")
-set(ext_binary_dir "${PARAVIEW_WWW_DIR}/ext/widgets")
-
-copy_files_recursive(${ext_source_dir}
-  DESTINATION ${ext_binary_dir}
-  REGEX "^.*$"
-  OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/ext-copy-complete"
-  LABEL "Copying widgets External files")
-
-# =================================================================
 # NV charts
 # =================================================================
 
@@ -64,6 +51,24 @@ copy_files_recursive(${paraview_pipeline_source_dir}
   LABEL "Copying ParaView Pipeline CSS files")
 
 # =================================================================
+# New Pipeline components
+# =================================================================
+
+set(paraview_pipeline2_source_dir "${CMAKE_CURRENT_SOURCE_DIR}/Pipeline")
+
+copy_files_recursive(${paraview_pipeline2_source_dir}
+  DESTINATION ${paraview_pipeline_binary_dir_js}
+  REGEX "^(.*\\.js)$"
+  OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/paraview_pipeline2-js-copy-complete"
+  LABEL "Copying ParaView Pipeline JavaScript files")
+
+copy_files_recursive(${paraview_pipeline2_source_dir}
+  DESTINATION ${paraview_pipeline_binary_dir_css}
+  REGEX "^(.*\\.js)$" EXCLUDE
+  OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/paraview_pipeline2-css-copy-complete"
+  LABEL "Copying ParaView Pipeline CSS files")
+
+# =================================================================
 # Toolbars
 # =================================================================
 
@@ -84,15 +89,31 @@ copy_files_recursive(${paraview_toolbars_source_dir}
   LABEL "Copying ParaView Toolbars CSS files")
 
 # =================================================================
+# Logos
+# =================================================================
+
+set(paraview_logo_source_dir "${CMAKE_CURRENT_SOURCE_DIR}/Cinema")
+set(paraview_logo_binary_dir "${CMAKE_BINARY_DIR}/www/ext/pv")
+
+copy_files_recursive(${paraview_logo_source_dir}
+  DESTINATION ${paraview_logo_binary_dir}
+  REGEX "^(.*\\.png)$"
+  OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/paraview_logo-copy-complete"
+  LABEL "Copying ParaView Logos files")
+
+
+# =================================================================
 # Dependency
 # =================================================================
 
 add_custom_target(ParaViewWebWidgets ALL DEPENDS
-  "${CMAKE_CURRENT_BINARY_DIR}/ext-copy-complete"
   "${CMAKE_CURRENT_BINARY_DIR}/nvcharts-js-copy-complete"
   "${CMAKE_CURRENT_BINARY_DIR}/rickshawcharts-js-copy-complete"
   "${CMAKE_CURRENT_BINARY_DIR}/paraview_pipeline-js-copy-complete"
   "${CMAKE_CURRENT_BINARY_DIR}/paraview_pipeline-css-copy-complete"
+  "${CMAKE_CURRENT_BINARY_DIR}/paraview_pipeline2-js-copy-complete"
+  "${CMAKE_CURRENT_BINARY_DIR}/paraview_pipeline2-css-copy-complete"
   "${CMAKE_CURRENT_BINARY_DIR}/paraview_toolbars-js-copy-complete"
   "${CMAKE_CURRENT_BINARY_DIR}/paraview_toolbars-css-copy-complete"
+  "${CMAKE_CURRENT_BINARY_DIR}/paraview_logo-copy-complete"
   )

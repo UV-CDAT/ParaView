@@ -27,13 +27,14 @@ foreach (flag CMAKE_C_FLAGS_DEBUG
 endforeach()
 
 set (examples_dependencies
-  vtkPVServerManagerApplication)
+  vtkPVServerManagerApplication
+  vtkPVServerManagerApplicationCS)
 if (PARAVIEW_BUILD_QT_GUI)
   list (APPEND examples_dependencies pqApplicationComponents)
 endif()
 
 add_custom_command(
-  OUTPUT ${ParaView_BINARY_DIR}/ParaViewExamples
+  OUTPUT "${ParaView_BINARY_DIR}/ParaViewExamples.done"
   COMMAND ${CMAKE_CTEST_COMMAND}
   ARGS ${build_config_arg}
        --build-and-test
@@ -45,6 +46,7 @@ add_custom_command(
        --build-generator ${CMAKE_GENERATOR}
        --build-makeprogram ${CMAKE_MAKE_PROGRAM}
        --build-options -DParaView_DIR:PATH=${ParaView_BINARY_DIR}
+                       -DPARAVIEW_QT_VERSION:STRING=${PARAVIEW_QT_VERSION}
                        -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
                        -DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}
                        -DCMAKE_C_FLAGS:STRING=${CMAKE_C_FLAGS}
@@ -53,6 +55,12 @@ add_custom_command(
                        -DCMAKE_LIBRARY_OUTPUT_DIRECTORY:PATH=${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
                        -DCMAKE_RUNTIME_OUTPUT_DIRECTORY:PATH=${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
                        ${extra_params}
+                       --no-warn-unused-cli
+  COMMAND ${CMAKE_COMMAND} -E touch
+          "${ParaView_BINARY_DIR}/ParaViewExamples.done"
   COMMENT "Build examples as a separate project"
   DEPENDS ${examples_dependencies}
 )
+# Add custom target to ensure that the examples get built.
+add_custom_target(ParaViewExamples ALL DEPENDS
+  "${ParaView_BINARY_DIR}/ParaViewExamples.done")

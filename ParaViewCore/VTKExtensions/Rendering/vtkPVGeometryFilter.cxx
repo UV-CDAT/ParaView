@@ -21,6 +21,7 @@
 #include "vtkCellArray.h"
 #include "vtkCellData.h"
 #include "vtkCellTypes.h"
+#include "vtkCellIterator.h"
 #include "vtkCleanArrays.h"
 #include "vtkCommand.h"
 #include "vtkCompositeDataPipeline.h"
@@ -175,10 +176,6 @@ vtkPVGeometryFilter::vtkPVGeometryFilter ()
 
   this->HideInternalAMRFaces = true;
   this->UseNonOverlappingAMRMetaDataForOutlines = true;
-
-  this->GetInformation()->Set(vtkAlgorithm::PRESERVES_RANGES(), 1);
-  this->GetInformation()->Set(vtkAlgorithm::PRESERVES_BOUNDS(), 1);
-  this->GetInformation()->Set(vtkAlgorithm::PRESERVES_TOPOLOGY(), 1);
 }
 
 //----------------------------------------------------------------------------
@@ -317,19 +314,6 @@ int vtkPVGeometryFilter::CheckAttributes(vtkDataObject* input)
     iter->Delete();
     }
   return 0;
-}
-
-//----------------------------------------------------------------------------
-int vtkPVGeometryFilter::RequestInformation(
-  vtkInformation*, vtkInformationVector** vtkNotUsed(inVectors), vtkInformationVector* outputVector)
-{
-  vtkInformation* outInfo = outputVector->GetInformationObject(0);
-
-  // RequestData() synchronizes (communicates among processes), so we need
-  // all procs to call RequestData().
-  outInfo->Set(vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES(), -1);
-
-  return 1;
 }
 
 //----------------------------------------------------------------------------
@@ -484,10 +468,10 @@ void vtkPVGeometryFilter::ExecuteBlock(
     return;
     }
 
-  if (input->IsA("vtkUnstructuredGrid"))
+  if (input->IsA("vtkUnstructuredGridBase"))
     {
     this->UnstructuredGridExecute(
-      static_cast<vtkUnstructuredGrid*>(input), output, doCommunicate);
+      static_cast<vtkUnstructuredGridBase*>(input), output, doCommunicate);
     return;
     }
 
@@ -1358,7 +1342,7 @@ void vtkPVGeometryFilter::RectilinearGridExecute(vtkRectilinearGrid* input,
 
 //----------------------------------------------------------------------------
 void vtkPVGeometryFilter::UnstructuredGridExecute(
-  vtkUnstructuredGrid* input, vtkPolyData* output, int doCommunicate)
+  vtkUnstructuredGridBase* input, vtkPolyData* output, int doCommunicate)
 {
   if (!this->UseOutline)
     {
@@ -1369,11 +1353,12 @@ void vtkPVGeometryFilter::UnstructuredGridExecute(
       {
       // Check to see if the data actually has nonlinear cells.  Handling
       // nonlinear cells adds unnecessary work if we only have linear cells.
-      vtkUnsignedCharArray *types = input->GetCellTypesArray();
-      vtkIdType numCells = input->GetNumberOfCells();
-      for (vtkIdType i = 0; i < numCells; i++)
+      vtkSmartPointer<vtkCellIterator> cellIter =
+          vtkSmartPointer<vtkCellIterator>::Take(input->NewCellIterator());
+      for (cellIter->InitTraversal(); !cellIter->IsDoneWithTraversal();
+           cellIter->GoToNextCell())
         {
-        if (!vtkCellTypes::IsLinear(types->GetValue(i)))
+        if (!vtkCellTypes::IsLinear(cellIter->GetCellType()))
           {
           handleSubdivision = true;
           break;
@@ -1383,7 +1368,8 @@ void vtkPVGeometryFilter::UnstructuredGridExecute(
 
     vtkSmartPointer<vtkIdTypeArray> facePtIds2OriginalPtIds;
 
-    VTK_CREATE(vtkUnstructuredGrid, inputClone);
+    vtkSmartPointer<vtkUnstructuredGridBase> inputClone =
+        vtkSmartPointer<vtkUnstructuredGridBase>::Take(input->NewInstance());
     inputClone->ShallowCopy(input);
     input = inputClone;
 

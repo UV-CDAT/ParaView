@@ -58,15 +58,19 @@
 #include "vtkSMSelectionHelper.h"
 #include "vtkSMSession.h"
 #include "vtkSMSessionProxyManager.h"
+#include "vtkSMTrace.h"
+#include "vtkSMUncheckedPropertyHelper.h"
 #include "vtkTransform.h"
 #include "vtkWeakPointer.h"
 #include "vtkWindowToImageFilter.h"
 
 #include <map>
+#include <cassert>
 
 namespace
 {
 
+#if !defined(__APPLE__)
   bool vtkIsImageEmpty(vtkImageData* image)
     {
     vtkDataArray* scalars = image->GetPointData()->GetScalars();
@@ -81,6 +85,7 @@ namespace
       }
     return true;
     }
+#endif
 
   class vtkRenderHelper : public vtkPVRenderViewProxy
   {
@@ -345,6 +350,15 @@ vtkPVGenericRenderWindowInteractor* vtkSMRenderViewProxy::GetInteractor()
 }
 
 //----------------------------------------------------------------------------
+vtkRenderWindow* vtkSMRenderViewProxy::GetRenderWindow()
+{
+  this->CreateVTKObjects();
+  vtkPVRenderView* rv = vtkPVRenderView::SafeDownCast(
+    this->GetClientSideObject());
+  return rv? rv->GetRenderWindow() : NULL;
+}
+
+//----------------------------------------------------------------------------
 void vtkSMRenderViewProxy::CreateVTKObjects()
 {
   if (this->ObjectsCreated)
@@ -454,121 +468,54 @@ void vtkSMRenderViewProxy::CreateVTKObjects()
 }
 
 //----------------------------------------------------------------------------
-vtkSMRepresentationProxy* vtkSMRenderViewProxy::CreateDefaultRepresentation(
-  vtkSMProxy* source, int opport)
+const char* vtkSMRenderViewProxy::GetRepresentationType(
+  vtkSMSourceProxy* producer, int outputPort)
 {
-  if (!source)
+  assert(producer);
+
+  if (const char* reprName = this->Superclass::GetRepresentationType(producer, outputPort))
     {
-    return 0;
+    return reprName;
     }
 
-  vtkSMSessionProxyManager* pxm = source->GetSessionProxyManager();
-
-  // Update with time to avoid domains updating without time later.
-  vtkSMSourceProxy* sproxy = vtkSMSourceProxy::SafeDownCast(source);
-  if (sproxy)
+  vtkSMSessionProxyManager* pxm = this->GetSessionProxyManager();
+  const char* representationsToTry[] =
     {
-    double view_time = vtkSMPropertyHelper(this, "ViewTime").GetAsDouble();
-    sproxy->UpdatePipeline(view_time);
+    "UnstructuredGridRepresentation",
+    "UnstructuredGridBaseRepresentation",
+    "StructuredGridRepresentation",
+    "UniformGridRepresentation",
+    "AMRRepresentation",
+    "MoleculeRepresentation",
+    "GeometryRepresentation",
+    NULL
+    };
+  for (int cc=0; representationsToTry[cc] != NULL; ++cc)
+    {
+    vtkSMProxy* prototype =
+      pxm->GetPrototypeProxy("representations", representationsToTry[cc]);
+    if (prototype)
+      {
+      vtkSMProperty* inputProp = prototype->GetProperty("Input");
+      vtkSMUncheckedPropertyHelper helper(inputProp);
+      helper.Set(producer, outputPort);
+      bool acceptable = (inputProp->IsInDomains() > 0);
+      helper.SetNumberOfElements(0);
+      if (acceptable)
+        {
+        return representationsToTry[cc];
+        }
+      }
     }
 
-  // Choose which type of representation proxy to create.
-  vtkSMProxy* prototype = pxm->GetPrototypeProxy("representations",
-    "UnstructuredGridRepresentation");
-
-  vtkSMInputProperty* pp = vtkSMInputProperty::SafeDownCast(
-    prototype->GetProperty("Input"));
-  pp->RemoveAllUncheckedProxies();
-  pp->AddUncheckedInputConnection(source, opport);
-  bool usg = (pp->IsInDomains()>0);
-  pp->RemoveAllUncheckedProxies();
-  if (usg)
-    {
-    return vtkSMRepresentationProxy::SafeDownCast(
-      pxm->NewProxy("representations", "UnstructuredGridRepresentation"));
-    }
-
-  prototype = pxm->GetPrototypeProxy("representations",
-    "StructuredGridRepresentation");
-
-  pp = vtkSMInputProperty::SafeDownCast(prototype->GetProperty("Input"));
-  pp->RemoveAllUncheckedProxies();
-  pp->AddUncheckedInputConnection(source, opport);
-  bool ssg = (pp->IsInDomains()>0);
-  pp->RemoveAllUncheckedProxies();
-  if (ssg)
-    {
-    return vtkSMRepresentationProxy::SafeDownCast(
-      pxm->NewProxy("representations", "StructuredGridRepresentation"));
-    }
-
-  prototype = pxm->GetPrototypeProxy("representations",
-    "UniformGridRepresentation");
-  pp = vtkSMInputProperty::SafeDownCast(
-    prototype->GetProperty("Input"));
-  pp->RemoveAllUncheckedProxies();
-  pp->AddUncheckedInputConnection(source, opport);
-  bool sg = (pp->IsInDomains()>0);
-  pp->RemoveAllUncheckedProxies();
-  if (sg)
-    {
-    return vtkSMRepresentationProxy::SafeDownCast(
-      pxm->NewProxy("representations", "UniformGridRepresentation"));
-    }
-
-  prototype = pxm->GetPrototypeProxy("representations",
-    "AMRRepresentation");
-  pp = vtkSMInputProperty::SafeDownCast(
-    prototype->GetProperty("Input"));
-  pp->RemoveAllUncheckedProxies();
-  pp->AddUncheckedInputConnection(source, opport);
-  bool ag = (pp->IsInDomains()>0);
-  pp->RemoveAllUncheckedProxies();
-  if (ag)
-    {
-    return vtkSMRepresentationProxy::SafeDownCast(
-      pxm->NewProxy("representations", "AMRRepresentation"));
-    }
-
-  prototype = pxm->GetPrototypeProxy("representations",
-    "MoleculeRepresentation");
-  pp = vtkSMInputProperty::SafeDownCast(
-    prototype->GetProperty("Input"));
-  pp->RemoveAllUncheckedProxies();
-  pp->AddUncheckedInputConnection(source, opport);
-  bool mg = (pp->IsInDomains()>0);
-  pp->RemoveAllUncheckedProxies();
-  if (mg)
-    {
-    return vtkSMRepresentationProxy::SafeDownCast(
-      pxm->NewProxy("representations", "MoleculeRepresentation"));
-    }
-
-  prototype = pxm->GetPrototypeProxy("representations",
-    "GeometryRepresentation");
-  pp = vtkSMInputProperty::SafeDownCast(
-    prototype->GetProperty("Input"));
-  pp->RemoveAllUncheckedProxies();
-  pp->AddUncheckedInputConnection(source, opport);
-  bool g = (pp->IsInDomains()>0);
-  pp->RemoveAllUncheckedProxies();
-  if (g)
-    {
-    return vtkSMRepresentationProxy::SafeDownCast(
-      pxm->NewProxy("representations", "GeometryRepresentation"));
-    }
-
-  vtkPVXMLElement* hints = source->GetHints();
-  if (hints)
+  if (vtkPVXMLElement* hints = producer->GetHints())
     {
     // If the source has an hint as follows, then it's a text producer and must
-    // be is display-able.
+    // be display-able.
     //  <Hints>
     //    <OutputPort name="..." index="..." type="text" />
     //  </Hints>
-
-    unsigned int numElems = hints->GetNumberOfNestedElements();
-    for (unsigned int cc=0; cc < numElems; cc++)
+    for (unsigned int cc=0, max=hints->GetNumberOfNestedElements(); cc < max; cc++)
       {
       int index;
       vtkPVXMLElement* child = hints->GetNestedElement(cc);
@@ -576,30 +523,16 @@ vtkSMRepresentationProxy* vtkSMRenderViewProxy::CreateDefaultRepresentation(
       if (childName &&
         strcmp(childName, "OutputPort") == 0 &&
         child->GetScalarAttribute("index", &index) &&
-        index == opport &&
+        index == outputPort &&
         child->GetAttribute("type") &&
         strcmp(child->GetAttribute("type"), "text") == 0)
         {
-        return vtkSMRepresentationProxy::SafeDownCast(
-          pxm->NewProxy("representations", "TextSourceRepresentation"));
+        return "TextSourceRepresentation";
         }
-      else if(childName && !strcmp(childName, "DefaultRepresentations"))
-        {
-        unsigned int defaultRepCount = child->GetNumberOfNestedElements();
-        for(unsigned int i = 0; i < defaultRepCount; i++)
-          {
-          vtkPVXMLElement *defaultRep = child->GetNestedElement(i);
-          const char *representation = defaultRep->GetAttribute("representation");
-
-          return vtkSMRepresentationProxy::SafeDownCast(
-            pxm->NewProxy("representations", representation));
-          }
-        }
-
       }
     }
 
-  return 0;
+  return NULL;
 }
 
 //----------------------------------------------------------------------------
@@ -666,8 +599,38 @@ void vtkSMRenderViewProxy::ZoomTo(vtkSMProxy* representation)
 }
 
 //----------------------------------------------------------------------------
+void vtkSMRenderViewProxy::ResetCamera()
+{
+  SM_SCOPED_TRACE(CallMethod)
+    .arg(this)
+    .arg("ResetCamera")
+    .arg("comment", "reset view to fit data");
+  this->InvokeCommand("ResetCamera");
+}
+
+//----------------------------------------------------------------------------
+void vtkSMRenderViewProxy::ResetCamera(
+    double xmin, double xmax,
+    double ymin, double ymax,
+    double zmin, double zmax)
+{
+  double bds[6] = {xmin, xmax, ymin, ymax, zmin, zmax};
+  this->ResetCamera(bds);
+}
+
+//----------------------------------------------------------------------------
 void vtkSMRenderViewProxy::ResetCamera(double bounds[6])
 {
+  SM_SCOPED_TRACE(CallMethod)
+    .arg(this)
+    .arg("ResetCamera")
+    .arg(bounds[0])
+    .arg(bounds[1])
+    .arg(bounds[2])
+    .arg(bounds[3])
+    .arg(bounds[4])
+    .arg(bounds[5])
+    .arg("comment", "reset view to fit data bounds");
   this->CreateVTKObjects();
 
   vtkClientServerStream stream;
@@ -1169,7 +1132,7 @@ void vtkSMRenderViewProxy::CaptureWindowInternalRender()
 {
   vtkPVRenderView* view =
     vtkPVRenderView::SafeDownCast(this->GetClientSideObject());
-  if (view->GetUseInteractiveRenderingForSceenshots())
+  if (view->GetUseInteractiveRenderingForScreenshots())
     {
     this->InteractiveRender();
     }

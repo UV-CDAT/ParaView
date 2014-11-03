@@ -1,23 +1,13 @@
-vtk_module_impl()
-vtk_module_export("")
+include(vtkModuleMacrosPython)
 
-find_package(PythonInterp)
+# The RELATIVE make vtk_module_python_package() preserve the vtk/module package
+# structure when building/installing. Otherwise, we'd just get the "web"
+# package.
+vtk_module_python_package(${vtk-module} "paraview/web"
+    RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}")
 
-include(vtkPythonPackages)
-
-# Set global Python module directory for build tree
-set(pv_python_base_path "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/site-packages")
-set_property(GLOBAL PROPERTY PV_PYMODULE_BUILD_DIR ${pv_python_base_path})
-
-set(ParaViewPython_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-set(ParaViewPython_BINARY_DIR "${pv_python_base_path}/paraview/web")
-
-build_python_package(
-  "ParaViewWebPython"
-  ${ParaViewPython_SOURCE_DIR}
-  ${ParaViewPython_BINARY_DIR}
-)
-
-install(DIRECTORY ${ParaViewPython_BINARY_DIR}
-  DESTINATION ${VTK_INSTALL_LIBRARY_DIR}/site-packages/paraview
-  COMPONENT Runtime)
+# copy some default sources and proxies for ParaViewWeb
+set(ParaViewPython_BINARY_DIR "${VTK_BUILD_PYTHON_MODULE_DIR}/paraview/web")
+file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/defaultProxies.json"
+  DESTINATION "${ParaViewPython_BINARY_DIR}"
+  USE_SOURCE_PERMISSIONS)

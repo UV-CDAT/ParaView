@@ -92,9 +92,12 @@ public:
 
   // Description:
   // For backwards compatibility in Python scripts.
-  void ResetCamera()
-    { this->InvokeCommand("ResetCamera"); }
+  void ResetCamera();
   void ResetCamera(double bounds[6]);
+  void ResetCamera(
+    double xmin, double xmax,
+    double ymin, double ymax,
+    double zmin, double zmax);
 
   // Description:
   // Convenience method for zooming to a representation.
@@ -117,12 +120,6 @@ public:
   // Description:
   // Returns the client-side camera object.
   vtkCamera* GetActiveCamera();
-
-  // Description:
-  // Create a default representation for the given source proxy.
-  // Returns a new proxy.
-  virtual vtkSMRepresentationProxy* CreateDefaultRepresentation(
-    vtkSMProxy*, int);
 
   // Description:
   // This method calls UpdateInformation on the Camera Proxy
@@ -151,10 +148,21 @@ public:
   // geometry.
   bool StreamingUpdate(bool render_if_needed);
 
+  // Description:
+  // Overridden to check through the various representations that this view can
+  // create.
+  virtual const char* GetRepresentationType(
+    vtkSMSourceProxy* producer, int outputPort);
+
+  // Description:
+  // Returns the render window used by this view.
+  virtual vtkRenderWindow* GetRenderWindow();
+
 //BTX
 protected:
   vtkSMRenderViewProxy();
   ~vtkSMRenderViewProxy();
+
 
   // Description:
   // Calls UpdateLOD() on the vtkPVRenderView.

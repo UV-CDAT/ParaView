@@ -23,14 +23,23 @@ SET (SOURCE_FILES
   ParticlesViewerDisplayPolicy.cxx
 )
 
-QT4_WRAP_CPP(MOC_SRCS
-  ParticlesViewerStarter.h
-  ParticlesViewerDisplayPolicy.h
-)
-
-QT4_WRAP_UI(UI_BUILT_SOURCES
-  ParticlesViewerMainWindow.ui
-)
+if (PARAVIEW_QT_VERSION VERSION_GREATER "4")
+  QT5_WRAP_CPP(MOC_SRCS
+    ParticlesViewerStarter.h
+    ParticlesViewerDisplayPolicy.h
+  )
+  QT5_WRAP_UI(UI_BUILT_SOURCES
+    ParticlesViewerMainWindow.ui
+  )
+else ()
+  QT4_WRAP_CPP(MOC_SRCS
+    ParticlesViewerStarter.h
+    ParticlesViewerDisplayPolicy.h
+  )
+  QT4_WRAP_UI(UI_BUILT_SOURCES
+    ParticlesViewerMainWindow.ui
+  )
+endif ()
 
 ADD_PARAVIEW_AUTO_START(IFACES IFACE_SRCS
   CLASS_NAME ParticlesViewerStarter
@@ -41,7 +50,7 @@ ADD_PARAVIEW_PLUGIN(ParticlesViewerPlugin "1.0"
   GUI_INTERFACES ${IFACES}
   GUI_SOURCES ${IFACE_SRCS} ${SOURCE_FILES} ${MOC_SRCS} ${UI_BUILT_SOURCES})
 target_link_libraries(ParticlesViewerPlugin
-  pqApplicationComponents)
+                      LINK_PRIVATE pqApplicationComponents)
 
 #------------------------------------------------------------------------------
 # Build the client

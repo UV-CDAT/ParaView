@@ -99,6 +99,7 @@
     </StringVectorProperty>
 
     <IntVectorProperty command="SetQueryRankNeighbors"
+                         panel_visibility="advanced"
                          default_values="0"
                          name="QueryRankNeighbors"
                          number_of_elements="1">
@@ -110,6 +111,7 @@
     </IntVectorProperty>
 
     <IntVectorProperty command="SetRankInQuery"
+                       panel_visibility="advanced"
                        default_values="0"
                        name="RankInQuery"
                        number_of_elements="1">
@@ -127,7 +129,8 @@
   <SourceProxy class="vtkFileSeriesReader"
                file_name_method="SetFileName"
                name="GenericIOReader"
-               si_class="vtkSIFileSeriesReaderProxy">
+               si_class="vtkSIMetaReaderProxy"
+               mpi_required="1" >
     <Documentation long_help="Reads a cosmology file into a vtkUnstructuredGrid."
                    short_help="Read a cosmology file.">
                    Reads GenericIO

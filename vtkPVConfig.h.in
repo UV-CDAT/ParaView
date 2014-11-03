@@ -29,6 +29,8 @@
 #cmakedefine PARAVIEW_FREEZE_PYTHON
 #cmakedefine PARAVIEW_BUILD_ARCHITECTURE "@PARAVIEW_BUILD_ARCHITECTURE@"
 
+#cmakedefine PARAVIEW_ENABLE_MATPLOTLIB
+
 // Added for AutoMPI
 #cmakedefine VTK_MPIRUN_EXE "@MPIEXEC@"
 #cmakedefine VTK_MPI_PRENUMPROC_FLAGS "@VTK_MPI_PRENUMPROC_FLAGS@"
@@ -85,9 +87,6 @@
 # define PARAVIEW_BUILD_SHARED_LIBS
 #endif
 
-// The ParaView version of VTK_USE_X
-#cmakedefine PARAVIEW_USE_X
-
 // The default prevision value for conversion for string to double
 // and double to string
 #define DEFAULT_DOUBLE_PRECISION_VALUE 16
@@ -95,5 +94,9 @@
 #cmakedefine PARAVIEW_ENABLE_FFMPEG
 
 #cmakedefine PARAVIEW_USE_PISTON
+
+#cmakedefine Module_vtkIOXdmf3
+
+#cmakedefine Module_vtkIOADIOS
 
 #endif
